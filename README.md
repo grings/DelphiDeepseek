@@ -478,6 +478,7 @@ end;
       Result.OnStart := Start;
       Result.OnSuccess := Display;
       Result.OnError
+  end;
 ```
 
 <br/>
