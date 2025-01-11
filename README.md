@@ -412,7 +412,7 @@ In this unit, this schema will be used for function calls.
 
 <br/>
 
-1. We will use the TWeatherReportFunction plugin defined in the [`Anthropic.Functions.Example`](https://github.com/MaxiDonkey/DelphiDeepseek/blob/main/source/Deepseek.Functions.Example.pas) unit.
+1. We will use the TWeatherReportFunction plugin defined in the [`Deepseek.Functions.Example`](https://github.com/MaxiDonkey/DelphiDeepseek/blob/main/source/Deepseek.Functions.Example.pas) unit.
 
 ```Pascal
   var Weather := TWeatherReportFunction.CreateInstance;
