@@ -500,7 +500,7 @@ DeepSeek provides a JSON Output feature to guarantee the generation of valid JSO
 3. **Handling Potential Issues:**
      - The API may occasionally return empty content. This issue is under active optimization. Adjusting the prompt can help mitigate such occurrences.
 
-Refer tp [official documentation](https://api-docs.deepseek.com/guides/json_mode)
+Refer to [official documentation](https://api-docs.deepseek.com/guides/json_mode)
 
 <br/>
 
