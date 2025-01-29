@@ -21,6 +21,7 @@ ___
         - [Create a message](#Create-a-message)
         - [Streaming messages](#Streaming-messages)
         - [Multi-turn conversation](#Multi-turn-conversation)
+        - [Deepseek-reasoner](#Deepseek-reasoner)
     - [Function calling](#function-calling)
         - [Use case](#Use-case)
     - [JSON Output](#JSON-Output)
@@ -372,6 +373,44 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 //        DisplayStream(TutorialHub, Chat);
 //    end);
 ```
+
+<br/>
+
+### Deepseek-reasoner
+
+Since January 25, 2025, Deepseek has released a new model called `deepseek-reasoner`, designed to provide advanced reasoning capabilities similar to `OpenAI's O1` model.
+
+>[!TIP]
+> This model is accessible through the APIs available in this wrapper. However, due to the processing time required for its reasoning methods, it is recommended to use asynchronous approaches to prevent potential application blocking.
+>
+
+```Pascal
+// uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
+
+  //Asynchronous example
+  DeepSeek.Chat.ASynCreateStream(
+    procedure (Params: TChatParams)
+    begin
+      Params.Model('deepseek-reasoner');
+      Params.Messages([
+        FromUser('What does the ability to reason bring to language models?')
+      ]);
+      Params.MaxTokens(1024);
+      Params.Stream;
+    end,
+    function : TAsynChatStream
+    begin
+      Result.Sender := TutorialHub;
+      Result.OnStart := Start;
+      Result.OnProgress := DisplayStream;
+      Result.OnError := Display;
+      Result.OnDoCancel := DoCancellation;
+      Result.OnCancellation := Cancellation;
+    end);
+```
+
+It may take between 8 and 15 seconds before displaying the response.
+
 
 <br/>
 
