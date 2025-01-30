@@ -380,6 +380,14 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 
 Since January 25, 2025, Deepseek has released a new model called `deepseek-reasoner`, designed to provide advanced reasoning capabilities similar to `OpenAI's O1` model.
 
+>[!WARNING]
+>**Important Note:** This model does not support *function calls, JSON-formatted outputs, or the fill-in-the-middle (FIM) method*.
+
+**Unsupported parameters:**
+- *temperature, top_p, presence_penalty, frequency_penalty, logprobs, top_logprobs.*
+
+To ensure compatibility with existing software, using *temperature, top_p, presence_penalty, and frequency_penalty* will not trigger an error but will have no effect on the model. However, using logprobs and top_logprobs will result in an error.
+
 >[!TIP]
 > This model is accessible through the APIs available in this wrapper. However, due to the processing time required for its reasoning methods, it is recommended to use asynchronous approaches to prevent potential application blocking.
 >
