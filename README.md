@@ -380,6 +380,8 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 
 Since January 25, 2025, Deepseek has released a new model called `deepseek-reasoner`, designed to provide advanced reasoning capabilities similar to `OpenAI's O1` model.
 
+Please refer to the [dedicated page](https://api-docs.deepseek.com/guides/reasoning_model) on the official website.
+
 >[!WARNING]
 >**Important Note:** This model does not support *function calls, JSON-formatted outputs, or the fill-in-the-middle (FIM) method*.
 
