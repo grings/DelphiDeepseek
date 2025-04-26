@@ -50,7 +50,7 @@ type
   /// This class provides information about whether the user's balance is sufficient for API calls
   /// and includes detailed balance information across different currencies.
   /// </remarks>
-  TBalance = class
+  TBalance = class(TJSONFingerprint)
   private
     [JsonNameAttribute('is_available')]
     FIsAvailable: Boolean;

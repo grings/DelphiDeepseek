@@ -13,59 +13,9 @@ uses
   System.SysUtils, System.Classes, REST.JsonReflect, System.JSON, System.Threading,
   REST.Json.Types, Deepseek.API.Params, Deepseek.API, Deepseek.Types,
   Deepseek.Async.Params, Deepseek.Async.Support, Deepseek.Functions.Tools,
-  Deepseek.Functions.Core;
+  Deepseek.Functions.Core, Deepseek.API.Parallel;
 
 type
-  /// <summary>
-  /// Represents a message payload that includes an image, identified by a URL or a base-64 encoded string.
-  /// </summary>
-  /// <remarks>
-  /// This class is used to encapsulate details of an image message, including its source (URL or base-64 string)
-  /// and additional descriptive information. It extends <c>TJSONParam</c> for JSON serialization and integration with APIs.
-  /// </remarks>
-  /// <example>
-  /// This class can be utilized to construct structured image messages for communication in chat systems.
-  /// </example>
-  TMessageImageURL = class(TJSONParam)
-  public
-    /// <summary>
-    /// Url or base-64 string
-    /// </summary>
-    function Url(const Value: string): TMessageImageURL;
-    /// <summary>
-    /// Detail string
-    /// </summary>
-    function Detail(const Value: string): TMessageImageURL;
-  end;
-
-  /// <summary>
-  /// Represents the content of a message, which can be either text or an image URL.
-  /// </summary>
-  /// <remarks>
-  /// This class is used to define the structure and type of content within a message,
-  /// such as textual data or image references. It extends <c>TJSONParam</c> for
-  /// seamless JSON serialization and integration with APIs.
-  /// </remarks>
-  TMessageContent = class(TJSONParam)
-  public
-    /// <summary>
-    /// Type of the content: text or image_url
-    /// </summary>
-    function &Type(const Value: TContentType): TMessageContent;
-    /// <summary>
-    /// Text when type is text
-    /// </summary>
-    function Text(const Value: string): TMessageContent;
-    /// <summary>
-    /// Url or base-64 string when type is image_url
-    /// </summary>
-    function ImageUrl(const Url: string): TMessageContent; overload;
-    /// <summary>
-    /// Url or base-64 string when type is image_url
-    /// </summary>
-    function ImageUrl(const Url: string; const Detail: string): TMessageContent; overload;
-  end;
-
   /// <summary>
   /// Messages comprising the conversation so far.
   /// </summary>
@@ -74,7 +24,11 @@ type
     /// <summary>
     /// The role of the messages author.
     /// </summary>
-    function Role(const Value: TMessageRole): TContentParams;
+    function Role(const Value: TMessageRole): TContentParams; overload;
+    /// <summary>
+    /// The role of the messages author.
+    /// </summary>
+    function Role(const Value: string): TContentParams; overload;
     /// <summary>
     /// An optional name for the participant. Provides the model information to differentiate between
     /// participants of the same role.
@@ -98,6 +52,11 @@ type
     /// this feature.
     /// </summary>
     function Prefix(const Value: Boolean): TContentParams;
+    /// <summary>
+    /// (Beta) Used for the deepseek-reasoner model in the Chat Prefix Completion feature as the input for the CoT
+    /// in the last assistant message. When using this feature, the prefix parameter must be set to true.
+    /// </summary>
+    function ReasoningContent(const Value: string): TContentParams;
     /// <summary>
     /// Creates a new chat message payload with the role of the system.
     /// </summary>
@@ -261,7 +220,18 @@ type
     /// <remarks>
     /// If not specified, the default value is <c>{ "type": "text" }</c>. When using JSON mode, it's necessary to instruct the model to produce JSON explicitly through the system or user messages.
     /// </remarks>
-    function ResponseFormat(const Value: TResponseFormat): TChatParams;
+    function ResponseFormat(const Value: TResponseFormat): TChatParams; overload;
+    /// <summary>
+    /// Specifies the format in which the model should return the response. This can include formats like JSON or plain text.
+    /// </summary>
+    /// <param name="Value">The desired response format, with the default being <c>"json_object"</c>.</param>
+    /// <returns>
+    /// The updated <c>TChatParams</c> instance.
+    /// </returns>
+    /// <remarks>
+    /// If not specified, the default value is <c>{ "type": "text" }</c>. When using JSON mode, it's necessary to instruct the model to produce JSON explicitly through the system or user messages.
+    /// </remarks>
+    function ResponseFormat(const Value: string): TChatParams; overload;
     /// <summary>
     /// Stop (string)
     /// Stop generation if this token is detected. Or if one of these tokens is detected when providing an array
@@ -375,7 +345,22 @@ type
     /// If set to <c>auto</c>, the model can choose between generating a message or calling a function.
     /// If set to <c>required</c>, the model is required to call a function.
     /// </remarks>
-    function ToolChoice(const Value: TToolChoice): TChatParams;
+    function ToolChoice(const Value: TToolChoice): TChatParams; overload;
+    /// <summary>
+    /// Configures how the model interacts with functions. This can either prevent, allow, or require function calls depending on the setting.
+    /// </summary>
+    /// <param name="Value">
+    /// The <c>TToolChoice</c> setting for function interaction, with a default of "auto".
+    /// </param>
+    /// <returns>
+    /// The updated <c>TChatParams</c> instance.
+    /// </returns>
+    /// <remarks>
+    /// If set to <c>none</c>, the model will not call any functions and will generate a message instead.
+    /// If set to <c>auto</c>, the model can choose between generating a message or calling a function.
+    /// If set to <c>required</c>, the model is required to call a function.
+    /// </remarks>
+    function ToolChoice(const Value: string): TChatParams; overload;
     /// <summary>
     /// Whether to return log probabilities of the output tokens or not. If true, returns the log probabilities of each output token returned in the content of message.
     /// </summary>
@@ -468,6 +453,8 @@ type
     FRole: TMessageRole;
     [JsonNameAttribute('tool_calls')]
     FToolCalls: TArray<TToolCalls>;
+    [JsonNameAttribute('reasoning_content')]
+    FReasoningContent: string;
   public
     /// <summary>
     /// The contents of the message.
@@ -492,6 +479,10 @@ type
     /// This is typically used when the assistant needs to call external APIs or perform specific actions before delivering a final response.
     /// </remarks>
     property ToolCalls: TArray<TToolCalls> read FToolCalls write FToolCalls;
+    /// <summary>
+    /// For deepseek-reasoner model only. The reasoning contents of the assistant message, before the final answer.
+    /// </summary>
+    property ReasoningContent: string read FReasoningContent write FReasoningContent;
     /// <summary>
     /// Destructor to release any resources used by this instance.
     /// </summary>
@@ -644,6 +635,8 @@ type
     FContent: string;
     [JsonReflectAttribute(ctString, rtString, TMessageRoleInterceptor)]
     FRole: TMessageRole;
+    [JsonNameAttribute('reasoning_content')]
+    FReasoningContent: string;
   public
     /// <summary>
     /// The contents of the message.
@@ -660,6 +653,10 @@ type
     /// "assistant" for responses generated by the AI, or "system" for control messages.
     /// </remarks>
     property Role: TMessageRole read FRole write FRole;
+    /// <summary>
+    /// For deepseek-reasoner model only. The reasoning contents of the assistant message, before the final answer.
+    /// </summary>
+    property ReasoningContent: string read FReasoningContent write FReasoningContent;
   end;
 
   /// <summary>
@@ -795,7 +792,7 @@ type
   /// This class is crucial for managing the results of AI-driven conversations and understanding the
   /// underlying usage and response characteristics of the AI.
   /// </remarks>
-  TChat = class
+  TChat = class(TJSONFingerprint)
   private
     FId: string;
     FChoices: TArray<TChatChoice>;
@@ -1076,6 +1073,27 @@ type
     /// </code>
     /// </remarks>
     function CreateStream(ParamProc: TProc<TChatParams>; Event: TChatEvent): Boolean;
+    /// <summary>
+    /// Initiates parallel processing of chat prompts by creating multiple chat completions
+    /// asynchronously, with results stored in a bundle and provided back to the callback function.
+    /// This method allows for parallel processing of multiple prompts in an efficient manner,
+    /// handling errors and successes for each chat completion.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure delegate that configures the parameters for the bundle. It is responsible
+    /// for providing the necessary settings (such as model and reasoning effort) for the chat completions.
+    /// </param>
+    /// <param name="CallBacks">
+    /// A function that returns an instance of TAsynBuffer, which manages the lifecycle of the
+    /// asynchronous operation. The callbacks include handlers for start, error, and success events.
+    /// </param>
+    /// <remarks>
+    /// The method allows for efficient parallel processing of multiple prompts by delegating
+    /// individual tasks to separate threads. It each task's result is properly bundled and communicated back to the caller.
+    /// If an error occurs, the error handling callback will be triggered, and the rest of the tasks
+    /// will continue processing. The success callback is triggered once all tasks are completed.
+    /// </remarks>
+    procedure CreateParallel(ParamProc: TProc<TBundleParams>; CallBacks: TFunc<TAsynBundleList>);
   end;
 
 implementation
@@ -1117,6 +1135,16 @@ end;
 function TContentParams.Prefix(const Value: Boolean): TContentParams;
 begin
   Result := TContentParams(Add('prefix', Value));
+end;
+
+function TContentParams.ReasoningContent(const Value: string): TContentParams;
+begin
+  Result := TContentParams(Add('reasoning_content', Value));
+end;
+
+function TContentParams.Role(const Value: string): TContentParams;
+begin
+  Result := TContentParams(Add('role', TMessageRole.Create(Value).ToString));
 end;
 
 function TContentParams.Role(const Value: TMessageRole): TContentParams;
@@ -1172,6 +1200,11 @@ begin
   Result := TChatParams(Add('presence_penalty', Value));
 end;
 
+function TChatParams.ResponseFormat(const Value: string): TChatParams;
+begin
+  Result := TChatParams(Add('response_format', TJSONObject.Create.AddPair('type', TResponseFormat.Create(Value).ToString)));
+end;
+
 function TChatParams.ResponseFormat(
   const Value: TResponseFormat): TChatParams;
 begin
@@ -1208,6 +1241,11 @@ end;
 function TChatParams.ToolChoice(const Value: TToolChoice): TChatParams;
 begin
   Result := TChatParams(Add('tool_choice', Value.ToString));
+end;
+
+function TChatParams.ToolChoice(const Value: string): TChatParams;
+begin
+  Result := TChatParams(Add('tool_choice', TToolChoice.Create(Value).ToString));
 end;
 
 function TChatParams.Tools(const Value: TArray<IFunctionCore>): TChatParams;
@@ -1270,6 +1308,7 @@ var CallBackParams := TUseParamsFactory<TAsynChatStream>.CreateInstance(CallBack
   var OnError := CallBackParams.Param.OnError;
   var OnCancellation := CallBackParams.Param.OnCancellation;
   var OnDoCancel := CallBackParams.Param.OnDoCancel;
+  var CancelTag := 0;
 
   var Task: ITask := TTask.Create(
           procedure()
@@ -1302,12 +1341,13 @@ var CallBackParams := TUseParamsFactory<TAsynChatStream>.CreateInstance(CallBack
                   if Stop then
                     begin
                       {--- Trigger when processus was stopped }
-                      if Assigned(OnCancellation) then
+                      if (CancelTag = 0) and Assigned(OnCancellation) then
                         TThread.Queue(nil,
                         procedure
                         begin
-                          OnCancellation(Sender)
+                          OnCancellation(Sender);
                         end);
+                      Inc(CancelTag);
                       Cancel := True;
                       Exit;
                     end;
@@ -1373,59 +1413,183 @@ begin
   Result := API.Post<TChat, TChatParams>('chat/completions', ParamProc);
 end;
 
+procedure TChatRoute.CreateParallel(ParamProc: TProc<TBundleParams>;
+  CallBacks: TFunc<TAsynBundleList>);
+var
+  Tasks: TArray<ITask>;
+  BundleParams: TBundleParams;
+begin
+  BundleParams := TBundleParams.Create;
+  try
+    if not Assigned(ParamProc) then
+      raise Exception.Create('The lambda can''t be null');
+
+    ParamProc(BundleParams);
+    var Bundle := TBundleList.Create;
+    var Ranking := 0;
+    var ErrorExists := False;
+    var Prompts := BundleParams.GetPrompt;
+    var Counter := Length(Prompts);
+
+    if Assigned(CallBacks.OnStart) then
+      CallBacks.OnStart(CallBacks.Sender);
+
+    SetLength(Tasks, Length(Prompts));
+    for var index := 0 to Pred(Length(Prompts)) do
+      begin
+        Tasks[index] := TTask.Run(
+          procedure
+          begin
+            var Buffer := Bundle.Add(index + 1);
+            Buffer.Prompt := Prompts[index];
+            try
+              var Chat := Create(
+                procedure (Params: TChatParams)
+                begin
+                  {--- Set the model for the process }
+                  Params.Model(BundleParams.GetModel);
+
+                  {--- Set the current prompt and developer message }
+                  Params.Messages([
+                    TContentParams.System(BundleParams.GetSystem),
+                    TContentParams.User(Buffer.Prompt)
+                  ]);
+                end);
+              Inc(Ranking);
+              Buffer.FinishIndex := Ranking;
+              Buffer.Response := Chat.Choices[0].Message.Content;
+              Buffer.Chat := Chat;
+            except
+              on E: Exception do
+                begin
+                  {--- Catch the exception }
+                  var Error := AcquireExceptionObject;
+                  ErrorExists := True;
+                  try
+                    var ErrorMsg := (Error as Exception).Message;
+                    {--- Trigger OnError callback if the process has failed }
+                    if Assigned(CallBacks.OnError) then
+                      TThread.Queue(nil,
+                      procedure
+                      begin
+                        CallBacks.OnError(CallBacks.Sender, ErrorMsg);
+                      end);
+                  finally
+                    {--- Ensures that the instance of the caught exception is released}
+                    Error.Free;
+                  end;
+                end;
+            end;
+          end);
+
+        if ErrorExists then
+          Continue;
+
+        {--- TTask.WaitForAll is not used due to a memory leak in TLightweightEvent/TCompleteEventsWrapper.
+             See report RSP-12462 and RSP-25999. }
+        TTaskHelper.ContinueWith(Tasks[Index],
+          procedure
+          begin
+            Dec(Counter);
+            if Counter = 0 then
+              begin
+                try
+                  if not ErrorExists and Assigned(CallBacks.OnSuccess) then
+                    CallBacks.OnSuccess(CallBacks.Sender, Bundle);
+                finally
+                  Bundle.Free;
+                end;
+              end;
+          end);
+        {--- Need a delay, otherwise the process runs only with the first task. }
+        Sleep(30);
+      end;
+  finally
+    BundleParams.Free;
+  end;
+end;
+
 function TChatRoute.CreateStream(ParamProc: TProc<TChatParams>;
   Event: TChatEvent): Boolean;
 var
   Response: TStringStream;
-  RetPos: Integer;
 begin
   Response := TStringStream.Create('', TEncoding.UTF8);
   try
-    RetPos := 0;
     Result := API.Post<TChatParams>('chat/completions', ParamProc, Response,
-      procedure(const Sender: TObject; AContentLength: Int64; AReadCount: Int64; var AAbort: Boolean)
+      procedure(const Sender: TObject; AContentLength, AReadCount: Int64; var AAbort: Boolean)
       var
-        IsDone: Boolean;
-        Data: string;
-        Chat: TChat;
-        TextBuffer: string;
-        Line: string;
-        Ret: Integer;
+        TextBuffer  : string;
+        BufferPos   : Integer;
+        PosLineEnd  : Integer;
+        Line, Data  : string;
+        Chat        : TChat;
+        IsDone      : Boolean;
+        NewBuffer   : string;
       begin
+        {--- Recovers all data already received }
         try
           TextBuffer := Response.DataString;
         except
+          {--- invalid encoding: we are waiting for the rest }
           on E: EEncodingError do
             Exit;
         end;
 
-        repeat
-          Ret := TextBuffer.IndexOf(#10, RetPos);
-          if Ret < 0 then
-            Continue;
-          Line := TextBuffer.Substring(RetPos, Ret - RetPos);
-          RetPos := Ret + 1;
+        {--- Current position in the buffer }
+        BufferPos := 0;
 
-          if Line.IsEmpty or Line.StartsWith(#10) then
-            Continue;
-          Chat := nil;
-          Data := Line.Replace('data: ', '').Trim([' ', #13, #10]);
-          IsDone := Data = '[DONE]';
+        {--- Line-by-line processing as long as a complete line (terminated by LF) is available }
+        while True do
+          begin
+            PosLineEnd := TextBuffer.IndexOf(#10, BufferPos);
+            if PosLineEnd < 0 then
+              {--- incomplete line -> we are waiting for the rest }
+              Break;
 
-          if not IsDone then
-          try
-            Chat := TJson.JsonToObject<TChat>(Data);
-          except
+            Line := TextBuffer.Substring(BufferPos, PosLineEnd - BufferPos).Trim([' ', #13, #10]);
+            {--- go to the next line }
+            BufferPos := PosLineEnd + 1;
+
+            if Line.IsEmpty then
+              {--- empty line -> we ignore }
+              Continue;
+
+            Data   := Line.Replace('data: ', '').Trim([' ', #13, #10]);
+            IsDone := SameText(Data, '[DONE]');
+
             Chat := nil;
+            if not IsDone then
+            try
+              Chat := TDeepseekAPI.Parse<TChat>(Data);
+            except
+              {--- if the JSON is incomplete we ignore }
+              Chat := nil;
+            end;
+
+            try
+              Event(Chat, IsDone, AAbort);
+            finally
+              Chat.Free;
+            end;
+
+            if IsDone then
+              {--- end of flow }
+              Break;
           end;
 
-          try
-            Event(Chat, IsDone, AAbort);
-          finally
-            Chat.Free;
-          end;
-        until Ret < 0;
+        {--- Cleaning: only the incomplete portion of the tampon is kept }
+        if BufferPos > 0 then
+          begin
+            {--- remaining fragment }
+            NewBuffer := TextBuffer.Substring(BufferPos);
 
+            {--- completely clears the stream }
+            Response.Size := 0;
+            if not NewBuffer.IsEmpty then
+              {--- rewrites the unfinished fragment }
+              Response.WriteString(NewBuffer);
+          end;
       end);
   finally
     Response.Free;
@@ -1490,43 +1654,6 @@ begin
   for var Item in FTopLogprobs do
     Item.Free;
   inherited;
-end;
-
-{ TMessageImageURL }
-
-function TMessageImageURL.Detail(const Value: string): TMessageImageURL;
-begin
-  Result := TMessageImageURL(Add('detail', Value));
-end;
-
-function TMessageImageURL.Url(const Value: string): TMessageImageURL;
-begin
-  Result := TMessageImageURL(Add('url', Value));
-end;
-
-{ TMessageContent }
-
-function TMessageContent.ImageUrl(const Url: string): TMessageContent;
-begin
-  Result := TMessageContent(Add('image_url', Url));
-end;
-
-function TMessageContent.ImageUrl(const Url, Detail: string): TMessageContent;
-begin
-  var Value := TMessageImageURL.Create.Url(Url);
-  if not Detail.IsEmpty then
-    Value := Value.Detail(Detail);
-  Result := TMessageContent(Add('image_url', Value.Detach));
-end;
-
-function TMessageContent.Text(const Value: string): TMessageContent;
-begin
-  Result := TMessageContent(Add('text', Value));
-end;
-
-function TMessageContent.&Type(const Value: TContentType): TMessageContent;
-begin
-  Result := TMessageContent(Add('type', Value.ToString));
 end;
 
 end.

@@ -26,7 +26,7 @@ type
   /// Key properties include <c>Id</c>, which identifies the model uniquely,
   /// <c>Object</c>, which specifies the type of the object, and <c>OwnedBy</c>,
   /// indicating the organ
-  TModel = class
+  TModel = class(TJSONFingerprint)
   private
     FId: string;
     FObject: string;
@@ -57,7 +57,7 @@ type
   /// while the <c>Data</c> property contains an array of <c>TModel</c> instances representing each model in the collection.
   /// Instances of this class are created as a result of API calls to list available models.
   /// </remarks>
-  TModels = class
+  TModels = class(TJSONFingerprint)
   private
     FObject: string;
     FData: TArray<TModel>;
@@ -163,51 +163,6 @@ type
     /// </remarks>
     procedure AsynList(CallBacks: TFunc<TAsynModels>);
     /// <summary>
-    /// Get a specific model.
-    /// The Models API response can be used to determine information about a specific model or
-    /// resolve a model alias to a model ID.
-    /// </summary>
-    /// <param name="ModelId">
-    /// Model identifier or alias.
-    /// </param>
-    /// <param name="CallBacks">
-    /// A function that returns <c>TAsynModel</c> to handle the asynchronous result.
-    /// </param>
-    /// <remarks>
-    /// <para>
-    /// The <c>CallBacks</c> function is invoked when the operation completes, either successfully or
-    /// with an error.
-    /// </para>
-    /// <code>
-    /// //WARNING - Move the following line into the main OnCreate
-    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
-    /// DeepSeek.Models.AsynRetrieve(ModelId,
-    ///   function : TAsynModels
-    ///   begin
-    ///      Result.Sender := my_display_component;
-    ///
-    ///      Result.OnStart :=
-    ///        procedure (Sender: TObject);
-    ///        begin
-    ///          // Handle the start
-    ///        end;
-    ///
-    ///      Result.OnSuccess :=
-    ///        procedure (Sender: TObject; Value: TModel)
-    ///        begin
-    ///          // Handle the display
-    ///        end;
-    ///
-    ///      Result.OnError :=
-    ///        procedure (Sender: TObject; Error: string)
-    ///        begin
-    ///          // Handle the error message
-    ///        end;
-    ///   end);
-    /// </code>
-    /// </remarks>
-    procedure AsynRetrieve(const ModelId: string; CallBacks: TFunc<TAsynModel>);
-    /// <summary>
     /// List available models.
     /// The Models API response can be used to determine which models are available for use in the API.
     /// </summary>
@@ -226,30 +181,6 @@ type
     /// end;
     /// </code>
     function List: TModels;
-    /// <summary>
-    /// Get a specific model.
-    /// The Models API response can be used to determine information about a specific model or
-    /// resolve a model alias to a model ID.
-    /// </summary>
-    /// <param name="ModelId">
-    /// Model identifier or alias.
-    /// </param>
-    /// <returns>
-    /// A <c>TModel</c> object containing the model data.
-    /// </returns>
-    /// <remarks>
-    /// <code>
-    /// //WARNING - Move the following line into the main OnCreate
-    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
-    /// var Value := DeepSeek.Models.Retrieve(ModelId);
-    /// try
-    ///   // Handle the Value
-    /// finally
-    ///   Value.Free;
-    /// end;
-    /// </code>
-    /// </remarks>
-    function Retrieve(const ModelId: string): TModel;
   end;
 
 implementation
@@ -283,33 +214,9 @@ begin
   end;
 end;
 
-procedure TModelsRoute.ASynRetrieve(const ModelId: string;
-  CallBacks: TFunc<TAsynModel>);
-begin
-  with TAsynCallBackExec<TAsynModel, TModel>.Create(CallBacks) do
-  try
-    Sender := Use.Param.Sender;
-    OnStart := Use.Param.OnStart;
-    OnSuccess := Use.Param.OnSuccess;
-    OnError := Use.Param.OnError;
-    Run(
-      function: TModel
-      begin
-        Result := Self.Retrieve(ModelId);
-      end);
-  finally
-    Free;
-  end;
-end;
-
 function TModelsRoute.List: TModels;
 begin
   Result := API.Get<TModels>('models');
-end;
-
-function TModelsRoute.Retrieve(const ModelId: string): TModel;
-begin
-  Result := API.Get<TModel>('models/' + ModelId);
 end;
 
 end.

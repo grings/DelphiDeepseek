@@ -346,7 +346,7 @@ type
   /// It includes properties such as the generated text choices, metadata about the completion, and usage statistics.
   /// This class is designed to work with the Deepseek API for handling text completions.
   /// </remarks>
-  TFIM = class
+  TFIM = class(TJSONFingerprint)
   private
     FId: string;
     FChoices: TArray<TFIMChoice>;
@@ -856,55 +856,83 @@ function TFIMRoute.CreateStream(ParamProc: TProc<TFIMParams>;
   Event: TFIMEvent): Boolean;
 var
   Response: TStringStream;
-  RetPos: Integer;
 begin
   Response := TStringStream.Create('', TEncoding.UTF8);
   try
-    RetPos := 0;
     Result := API.Post<TFIMParams>('completions', ParamProc, Response,
-      procedure(const Sender: TObject; AContentLength: Int64; AReadCount: Int64; var AAbort: Boolean)
+      procedure(const Sender: TObject; AContentLength, AReadCount: Int64; var AAbort: Boolean)
       var
-        IsDone: Boolean;
-        Data: string;
-        FIM: TFIM;
-        TextBuffer: string;
-        Line: string;
-        Ret: Integer;
+        TextBuffer  : string;
+        BufferPos   : Integer;
+        PosLineEnd  : Integer;
+        Line, Data  : string;
+        Chat        : TFIM;
+        IsDone      : Boolean;
+        NewBuffer   : string;
       begin
+        {--- Recovers all data already received }
         try
           TextBuffer := Response.DataString;
         except
+          {--- invalid encoding: we are waiting for the rest }
           on E: EEncodingError do
             Exit;
         end;
 
-        repeat
-          Ret := TextBuffer.IndexOf(#10, RetPos);
-          if Ret < 0 then
-            Continue;
-          Line := TextBuffer.Substring(RetPos, Ret - RetPos);
-          RetPos := Ret + 1;
+        {--- Current position in the buffer }
+        BufferPos := 0;
 
-          if Line.IsEmpty or Line.StartsWith(#10) then
-            Continue;
-          FIM := nil;
-          Data := Line.Replace('data: ', '').Trim([' ', #13, #10]);
-          IsDone := Data = '[DONE]';
+        {--- Line-by-line processing as long as a complete line (terminated by LF) is available }
+        while True do
+          begin
+            PosLineEnd := TextBuffer.IndexOf(#10, BufferPos);
+            if PosLineEnd < 0 then
+              {--- incomplete line -> we are waiting for the rest }
+              Break;
 
-          if not IsDone then
-          try
-            FIM := TJson.JsonToObject<TFIM>(Data);
-          except
-            FIM := nil;
+            Line := TextBuffer.Substring(BufferPos, PosLineEnd - BufferPos).Trim([' ', #13, #10]);
+            {--- go to the next line }
+            BufferPos := PosLineEnd + 1;
+
+            if Line.IsEmpty then
+              {--- empty line -> we ignore }
+              Continue;
+
+            Data   := Line.Replace('data: ', '').Trim([' ', #13, #10]);
+            IsDone := SameText(Data, '[DONE]');
+
+            Chat := nil;
+            if not IsDone then
+            try
+              Chat := TDeepseekAPI.Parse<TFIM>(Data);
+            except
+              {--- if the JSON is incomplete we ignore }
+              Chat := nil;
+            end;
+
+            try
+              Event(Chat, IsDone, AAbort);
+            finally
+              Chat.Free;
+            end;
+
+            if IsDone then
+              {--- end of flow }
+              Break;
           end;
 
-          try
-            Event(FIM, IsDone, AAbort);
-          finally
-            FIM.Free;
-          end;
-        until Ret < 0;
+        {--- Cleaning: only the incomplete portion of the tampon is kept }
+        if BufferPos > 0 then
+          begin
+            {--- remaining fragment }
+            NewBuffer := TextBuffer.Substring(BufferPos);
 
+            {--- completely clears the stream }
+            Response.Size := 0;
+            if not NewBuffer.IsEmpty then
+              {--- rewrites the unfinished fragment }
+              Response.WriteString(NewBuffer);
+          end;
       end);
   finally
     Response.Free;

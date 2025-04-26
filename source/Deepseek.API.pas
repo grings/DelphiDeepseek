@@ -11,120 +11,48 @@ interface
 
 uses
   System.Classes, System.Net.HttpClient, System.Net.URLClient, System.Net.Mime,
-  System.JSON, Deepseek.Errors, Deepseek.API.Params, System.SysUtils;
+  System.JSON, Deepseek.Errors, Deepseek.API.Params, System.SysUtils, Deepseek.HttpClient,
+  Deepseek.HttpClient.Intf, Deepseek.Exception, Deepseek.Monitoring;
 
 type
-  TDeepseekException = class(Exception)
+  TDeepseekConfiguration = class
+  const
+    URL_BASE = 'https://api.deepseek.com';
   private
-    FCode: Int64;
-    FMessage: string;
-    FType: string;
-    FErrorCode: string;
-    FParam: string;
+    FAPIKey: string;
+    FBaseUrl: string;
+    procedure SetAPIKey(const Value: string);
+    procedure SetBaseUrl(const Value: string);
   public
-    constructor Create(const ACode: Int64; const AError: TErrorCore); reintroduce; overload;
-    constructor Create(const ACode: Int64; const Value: string); reintroduce; overload;
-    function ToMessageString: string;
-    property Code: Int64 read FCode write FCode;
-    property Message: string read FMessage write FMessage;
-    property &Type: string read FType write FType;
-    property ErrorCode: string read FErrorCode write FErrorCode;
-    property Param: string read FParam write FParam;
+    constructor Create;
+    procedure APICheck;
+    property APIKey: string read FAPIKey write SetAPIKey;
+    property BaseUrl: string read FBaseUrl write SetBaseUrl;
   end;
 
-  TDeepseekExceptionAPI = class(Exception);
-
-  /// <summary>
-  /// Invalid request body format.
-  /// </summary>
-  /// <remarks>
-  /// Please modify your request body according to the hints in the error message. For more API format
-  /// details, please refer to DeepSeek API Docs.
-  /// </remarks>
-  TDeepseekExceptionInvalidFormatError = class(TDeepseekException);
-
-  /// <summary>
-  /// Authentication fails due to the wrong API key.
-  /// </summary>
-  /// <remarks>
-  /// Please check your API key. If you don't have one, please create an API key first.
-  /// </remarks>
-  TDeepseekExceptionAuthenticationFailsError = class(TDeepseekException);
-
-  /// <summary>
-  /// You have run out of balance.
-  /// </summary>
-  /// <remarks>
-  /// Please check your account's balance, and go to the Top up page to add funds.
-  /// </remarks>
-  TDeepseekExceptionInsufficientBalanceError = class(TDeepseekException);
-
-  /// <summary>
-  /// Your request contains invalid parameters.
-  /// </summary>
-  /// <remarks>
-  /// Please modify your request parameters according to the hints in the error message. For more API format
-  /// details, please refer to DeepSeek API Docs.
-  /// </remarks>
-  TDeepseekExceptionInvalidParametersError = class(TDeepseekException);
-
-  /// <summary>
-  /// You are sending requests too quickly.
-  /// </summary>
-  /// <remarks>
-  /// Please pace your requests reasonably. We also advise users to temporarily switch to the APIs of
-  /// alternative LLM service providers, like OpenAI.
-  /// </remarks>
-  TDeepseekExceptionRateLimitReachedError = class(TDeepseekException);
-
-  /// <summary>
-  /// Our server encounters an issue.
-  /// </summary>
-  /// <remarks>
-  /// Please retry your request after a brief wait and contact us if the issue persists.
-  /// </remarks>
-  TDeepseekExceptionServerError = class(TDeepseekException);
-
-  /// <summary>
-  /// The server is overloaded due to high traffic.
-  /// </summary>
-  /// <remarks>
-  /// Please retry your request after a brief wait.
-  /// </remarks>
-  TDeepseekExceptionServerOverloadeError = class(TDeepseekException);
-
-  TDeepseekExceptionInvalidResponse = class(TDeepseekException);
-
-  TDeepseekAPI = class
-  public
-    const
-      URL_BASE = 'https://api.deepseek.com';
+  TApiHttpHandler = class(TDeepseekConfiguration)
   private
-    FToken: string;
-    FBaseUrl: string;
     FCustomHeaders: TNetHeaders;
-
-    procedure SetToken(const Value: string);
-    procedure SetBaseUrl(const Value: string);
-    procedure RaiseError(Code: Int64; Error: TErrorCore);
-    procedure ParseError(const Code: Int64; const ResponseText: string);
     procedure SetCustomHeaders(const Value: TNetHeaders);
-
   protected
-    function GetHeaders: TNetHeaders; virtual;
-    function GetClient: THTTPClient; virtual;
-    function GetRequestURL(const Path: string): string;
-    function Get(const Path: string; Response: TStringStream): Integer; overload;
-    function Delete(const Path: string; Response: TStringStream): Integer; overload;
-    function Post(const Path: string; Response: TStringStream): Integer; overload;
-    function Post(const Path: string; Body: TJSONObject; Response: TStringStream; OnReceiveData: TReceiveDataCallback = nil): Integer; overload;
-    function Post(const Path: string; Body: TMultipartFormData; Response: TStringStream; var ResponseHeader: TNetHeaders): Integer; overload;
-    function ParseResponse<T: class, constructor>(const Code: Int64; const ResponseText: string): T; overload;
-    procedure CheckAPI;
+    FClientHttp: IHttpClientAPI;
+    function GetClientHttp: IHttpClientAPI;
+    function GetHeaders: TNetHeaders;
+    function BuildHeaders: TNetHeaders;
+    function BuildUrl(const Endpoint: string): string;
   public
-    function GetArray<TResult: class, constructor>(const Path: string): TResult;
+    function Client: IHttpClientAPI;
+    property ClientHttp: IHttpClientAPI read GetClientHttp;
+    property CustomHeaders: TNetHeaders read FCustomHeaders write SetCustomHeaders;
+  end;
+
+  TDeepseekAPI = class(TApiHttpHandler)
+  private
+    procedure RaiseError(Code: Int64; Error: TErrorCore);
+    procedure DeserializeErrorData(const Code: Int64; const ResponseText: string);
+    function Deserialize<T: class, constructor>(const Code: Int64; const ResponseText: string): T; overload;
+  public
     function Get<TResult: class, constructor>(const Path: string): TResult; overload;
-    function Get<TResult: class, constructor; TParams: TJSONParam>(const Path: string; ParamProc: TProc<TParams>): TResult; overload;
     procedure GetFile(const Path: string; Response: TStream); overload;
     function Delete<TResult: class, constructor>(const Path: string): TResult; overload;
     function Post<TParams: TJSONParam>(const Path: string; ParamProc: TProc<TParams>; Response: TStringStream; Event: TReceiveDataCallback = nil): Boolean; overload;
@@ -135,17 +63,16 @@ type
       var ResponseHeader: TNetHeaders): TResult; overload;
   public
     constructor Create; overload;
-    constructor Create(const AToken: string); overload;
-    destructor Destroy; override;
-    property Token: string read FToken write SetToken;
-    property BaseUrl: string read FBaseUrl write SetBaseUrl;
-    property CustomHeaders: TNetHeaders read FCustomHeaders write SetCustomHeaders;
+    constructor Create(const AAPIKey: string); overload;
+    class function Parse<T: class, constructor>(const Value: string): T;
   end;
 
   TDeepseekAPIRoute = class
   private
     FAPI: TDeepseekAPI;
     procedure SetAPI(const Value: TDeepseekAPI);
+  protected
+    procedure HeaderCustomize; virtual;
   public
     property API: TDeepseekAPI read FAPI write SetAPI;
     constructor CreateRoute(AAPI: TDeepseekAPI); reintroduce;
@@ -159,89 +86,15 @@ uses
 constructor TDeepseekAPI.Create;
 begin
   inherited;
-  FToken := '';
+  FAPIKey := EmptyStr;
   FBaseUrl := URL_BASE;
+  FClientHttp := THttpClientAPI.CreateInstance(APICheck);
 end;
 
-constructor TDeepseekAPI.Create(const AToken: string);
+constructor TDeepseekAPI.Create(const AAPIKey: string);
 begin
   Create;
-  Token := AToken;
-end;
-
-destructor TDeepseekAPI.Destroy;
-begin
-  inherited;
-end;
-
-function TDeepseekAPI.Post(const Path: string; Body: TJSONObject; Response: TStringStream; OnReceiveData: TReceiveDataCallback): Integer;
-var
-  Headers: TNetHeaders;
-  Stream: TStringStream;
-  Client: THTTPClient;
-begin
-  CheckAPI;
-  Client := GetClient;
-  try
-    Headers := GetHeaders + [TNetHeader.Create('Content-Type', 'application/json')];
-    Stream := TStringStream.Create;
-    Client.ReceiveDataCallBack := OnReceiveData;
-    try
-      Stream.WriteString(Body.ToJSON);
-      Stream.Position := 0;
-      Result := Client.Post(GetRequestURL(Path), Stream, Response, Headers).StatusCode;
-    finally
-      Client.ReceiveDataCallBack := nil;
-      Stream.Free;
-    end;
-  finally
-    Client.Free;
-  end;
-end;
-
-function TDeepseekAPI.Get(const Path: string;
-  Response: TStringStream): Integer;
-var
-  Client: THTTPClient;
-  Headers: TNetHeaders;
-begin
-  CheckAPI;
-  Client := GetClient;
-  try
-    Headers := GetHeaders;
-    Result := Client.Get(GetRequestURL(Path), Response, Headers).StatusCode;
-  finally
-    Client.Free;
-  end;
-end;
-
-function TDeepseekAPI.Post(const Path: string; Body: TMultipartFormData; Response: TStringStream;
-  var ResponseHeader: TNetHeaders): Integer;
-var
-  Client: THTTPClient;
-begin
-  CheckAPI;
-  Client := GetClient;
-  try
-    var PostResult := Client.Post(GetRequestURL(Path), Body, Response, GetHeaders);
-    ResponseHeader := PostResult.Headers;
-    Result := PostResult.StatusCode;
-  finally
-    Client.Free;
-  end;
-end;
-
-function TDeepseekAPI.Post(const Path: string; Response: TStringStream): Integer;
-var
-  Client: THTTPClient;
-begin
-  CheckAPI;
-  Client := GetClient;
-  try
-    Result := Client.Post(GetRequestURL(Path), TStream(nil), Response, GetHeaders).StatusCode;
-  finally
-    Client.Free;
-  end;
+  APIKey := AAPIKey;
 end;
 
 function TDeepseekAPI.Post<TResult, TParams>(const Path: string; ParamProc: TProc<TParams>): TResult;
@@ -250,16 +103,18 @@ var
   Params: TParams;
   Code: Integer;
 begin
+  Monitoring.Inc;
   Response := TStringStream.Create('', TEncoding.UTF8);
   Params := TParams.Create;
   try
     if Assigned(ParamProc) then
       ParamProc(Params);
-    Code := Post(Path, Params.JSON, Response);
-    Result := ParseResponse<TResult>(Code, Response.DataString)
+    Code := Client.Post(BuildUrl(Path), Params.JSON, Response, BuildHeaders, nil);
+    Result := Deserialize<TResult>(Code, Response.DataString)
   finally
     Params.Free;
     Response.Free;
+    Monitoring.Dec;
   end;
 end;
 
@@ -268,11 +123,12 @@ var
   Params: TParams;
   Code: Integer;
 begin
+  Monitoring.Inc;
   Params := TParams.Create;
   try
     if Assigned(ParamProc) then
       ParamProc(Params);
-    Code := Post(Path, Params.JSON, Response, Event);
+    Code := Client.Post(BuildUrl(Path), Params.JSON, Response, BuildHeaders, Event);
     case Code of
       200..299:
         Result := True;
@@ -281,6 +137,7 @@ begin
     end;
   finally
     Params.Free;
+    Monitoring.Dec;
   end;
 end;
 
@@ -289,25 +146,14 @@ var
   Response: TStringStream;
   Code: Integer;
 begin
+  Monitoring.Inc;
   Response := TStringStream.Create('', TEncoding.UTF8);
   try
-    Code := Post(Path, Response);
-    Result := ParseResponse<TResult>(Code, Response.DataString);
+    Code := Client.Post(BuildUrl(Path), Response, BuildHeaders);
+    Result := Deserialize<TResult>(Code, Response.DataString);
   finally
     Response.Free;
-  end;
-end;
-
-function TDeepseekAPI.Delete(const Path: string; Response: TStringStream): Integer;
-var
-  Client: THTTPClient;
-begin
-  CheckAPI;
-  Client := GetClient;
-  try
-    Result := Client.Delete(GetRequestURL(Path), Response, GetHeaders).StatusCode;
-  finally
-    Client.Free;
+    Monitoring.Dec;
   end;
 end;
 
@@ -316,28 +162,32 @@ var
   Response: TStringStream;
   Code: Integer;
 begin
+  Monitoring.Inc;
   Response := TStringStream.Create('', TEncoding.UTF8);
   try
-    Code := Delete(Path, Response);
-    Result := ParseResponse<TResult>(Code, Response.DataString);
+    Code := Client.Delete(BuildUrl(Path), Response, BuildHeaders);
+    Result := Deserialize<TResult>(Code, Response.DataString);
   finally
     Response.Free;
+    Monitoring.Dec;
   end;
 end;
 
 function TDeepseekAPI.PostForm<TResult, TParams>(const Path: string;
   ParamProc: TProc<TParams>; var ResponseHeader: TNetHeaders): TResult;
 begin
+  Monitoring.Inc;
   var Response := TStringStream.Create('', TEncoding.UTF8);
   var Params := TParams.Create;
   try
     if Assigned(ParamProc) then
       ParamProc(Params);
-    var Code := Post(Path, Params, Response, ResponseHeader);
-    Result := ParseResponse<TResult>(Code, Response.DataString);
+    var Code := Client.Post(BuildUrl(Path), Params, Response, ResponseHeader);
+    Result := Deserialize<TResult>(Code, Response.DataString);
   finally
     Params.Free;
     Response.Free;
+    Monitoring.Dec;
   end;
 end;
 
@@ -348,89 +198,31 @@ begin
   Result := PostForm<TResult, TParams>(Path, ParamProc, ResponseHeader);
 end;
 
-function TDeepseekAPI.Get<TResult, TParams>(const Path: string; ParamProc: TProc<TParams>): TResult;
-var
-  Response: TStringStream;
-  Params: TParams;
-  Code: Integer;
-begin
-  Response := TStringStream.Create('', TEncoding.UTF8);
-  Params := TParams.Create;
-  try
-    if Assigned(ParamProc) then
-      ParamProc(Params);
-    var Pairs: TArray<string> := [];
-    for var Pair in Params.ToStringPairs do
-      Pairs := Pairs + [Pair.Key + '=' + Pair.Value];
-    var QPath := Path;
-    if Length(Pairs) > 0 then
-      QPath := QPath + '?' + string.Join('&', Pairs);
-    Code := Get(QPath, Response);
-    Result := ParseResponse<TResult>(Code, Response.DataString);
-  finally
-    Params.Free;
-    Response.Free;
-  end;
-end;
-
 function TDeepseekAPI.Get<TResult>(const Path: string): TResult;
 var
   Response: TStringStream;
   Code: Integer;
 begin
+  Monitoring.Inc;
   CustomHeaders := [TNetHeader.Create('accept', 'application/json')];
   Response := TStringStream.Create('', TEncoding.UTF8);
   try
-    Code := Get(Path, Response);
-
-    with TStringList.Create do
-    try
-      Text := Response.DataString;
-      SaveToFile('Response.JSON', TEncoding.UTF8);
-    finally
-      Free;
-    end;
-
-    Result := ParseResponse<TResult>(Code, Response.DataString);
+    Code := Client.Get(BuildUrl(Path), Response, GetHeaders);
+    Result := Deserialize<TResult>(Code, Response.DataString);
   finally
     Response.Free;
+    Monitoring.Dec;
   end;
-end;
-
-function TDeepseekAPI.GetArray<TResult>(const Path: string): TResult;
-var
-  Response: TStringStream;
-  Code: Integer;
-begin
-  CustomHeaders := [TNetHeader.Create('accept', 'application/json')];
-  Response := TStringStream.Create('', TEncoding.UTF8);
-  try
-    Code := Get(Path, Response);
-    var Data := Response.DataString.Trim([#10]);
-    if Data.StartsWith('[') then
-      Data := Format('{"result":%s}', [Data]);
-    Result := ParseResponse<TResult>(Code, Data);
-  finally
-    Response.Free;
-  end;
-end;
-
-function TDeepseekAPI.GetClient: THTTPClient;
-begin
-  Result := THTTPClient.Create;
-  Result.AcceptCharSet := 'utf-8';
 end;
 
 procedure TDeepseekAPI.GetFile(const Path: string; Response: TStream);
 var
   Code: Integer;
   Strings: TStringStream;
-  Client: THTTPClient;
 begin
-  CheckAPI;
-  Client := GetClient;
+  Monitoring.Inc;
   try
-    Code := Client.Get(GetRequestURL(Path), Response, GetHeaders).StatusCode;
+    Code := Client.Get(BuildUrl(Path), Response, GetHeaders);
     case Code of
       200..299:
         ; {success}
@@ -439,34 +231,14 @@ begin
       try
         Response.Position := 0;
         Strings.LoadFromStream(Response);
-        ParseError(Code, Strings.DataString);
+        DeserializeErrorData(Code, Strings.DataString);
       finally
         Strings.Free;
       end;
     end;
   finally
-    Client.Free;
+    Monitoring.Dec;
   end;
-end;
-
-function TDeepseekAPI.GetHeaders: TNetHeaders;
-begin
-  Result :=
-    [TNetHeader.Create('authorization', 'Bearer ' + FToken)] +
-    FCustomHeaders;
-end;
-
-function TDeepseekAPI.GetRequestURL(const Path: string): string;
-begin
-  Result := Format('%s/%s', [FBaseURL, Path]);
-end;
-
-procedure TDeepseekAPI.CheckAPI;
-begin
-  if FToken.IsEmpty then
-    raise TDeepseekExceptionAPI.Create('Token is empty!');
-  if FBaseUrl.IsEmpty then
-    raise TDeepseekExceptionAPI.Create('Base url is empty!');
 end;
 
 procedure TDeepseekAPI.RaiseError(Code: Int64; Error: TErrorCore);
@@ -493,7 +265,23 @@ begin
   end;
 end;
 
-procedure TDeepseekAPI.ParseError(const Code: Int64; const ResponseText: string);
+class function TDeepseekAPI.Parse<T>(const Value: string): T;
+begin
+  Result := TJson.JsonToObject<T>(Value);
+
+  {--- Add JSON response if class inherits from TJSONFingerprint class. }
+  if Assigned(Result) and T.InheritsFrom(TJSONFingerprint) then
+    begin
+      var JSONValue := TJSONObject.ParseJSONValue(Value);
+      try
+        (Result as TJSONFingerprint).JSONResponse := JSONValue.Format();
+      finally
+        JSONValue.Free;
+      end;
+    end;
+end;
+
+procedure TDeepseekAPI.DeserializeErrorData(const Code: Int64; const ResponseText: string);
 var
   Error: TErrorCore;
 begin
@@ -512,36 +300,21 @@ begin
   end;
 end;
 
-function TDeepseekAPI.ParseResponse<T>(const Code: Int64; const ResponseText: string): T;
+function TDeepseekAPI.Deserialize<T>(const Code: Int64; const ResponseText: string): T;
 begin
   Result := nil;
   case Code of
     200..299:
       try
-        Result := TJson.JsonToObject<T>(ResponseText)
+        Result := Parse<T>(ResponseText);
       except
         FreeAndNil(Result);
       end;
   else
-    ParseError(Code, ResponseText);
+    DeserializeErrorData(Code, ResponseText);
   end;
   if not Assigned(Result) then
     raise TDeepseekExceptionInvalidResponse.Create(Code, 'Empty or invalid response');
-end;
-
-procedure TDeepseekAPI.SetBaseUrl(const Value: string);
-begin
-  FBaseUrl := Value;
-end;
-
-procedure TDeepseekAPI.SetCustomHeaders(const Value: TNetHeaders);
-begin
-  FCustomHeaders := Value;
-end;
-
-procedure TDeepseekAPI.SetToken(const Value: string);
-begin
-  FToken := Value;
 end;
 
 { TDeepseekAPIRoute }
@@ -552,31 +325,78 @@ begin
   FAPI := AAPI;
 end;
 
+procedure TDeepseekAPIRoute.HeaderCustomize;
+begin
+
+end;
+
 procedure TDeepseekAPIRoute.SetAPI(const Value: TDeepseekAPI);
 begin
   FAPI := Value;
 end;
 
-{ TDeepseekException }
+{ TDeepseekConfiguration }
 
-constructor TDeepseekException.Create(const ACode: Int64; const Value: string);
+procedure TDeepseekConfiguration.APICheck;
 begin
-  inherited Create(Format('error %d: %s', [ACode, Value]));
+  if FAPIKey.IsEmpty or FBaseUrl.IsEmpty then
+    raise TDeepseekExceptionAPI.Create('Invalid API key or base URL.');
 end;
 
-function TDeepseekException.ToMessageString: string;
+constructor TDeepseekConfiguration.Create;
 begin
-  Result := Format('error(%d) - %s'#10'  %s', [Code, ErrorCode, Message]);
+  inherited;
+  FAPIKey := EmptyStr;
+  FBaseUrl := URL_BASE;
 end;
 
-constructor TDeepseekException.Create(const ACode: Int64; const AError: TErrorCore);
+procedure TDeepseekConfiguration.SetAPIKey(const Value: string);
 begin
-  Code := ACode;
-  Message := (AError as TError).Error.Message;
-  &Type := (AError as TError).Error.&Type;
-  Param := (AError as TError).Error.Param;
-  ErrorCode := (AError as TError).Error.ErrorCode;
-  inherited Create(ToMessageString);
+  FAPIKey := Value;
+end;
+
+procedure TDeepseekConfiguration.SetBaseUrl(const Value: string);
+begin
+  FBaseUrl := Value;
+end;
+
+{ TApiHttpHandler }
+
+function TApiHttpHandler.BuildHeaders: TNetHeaders;
+begin
+  Result := GetHeaders + [TNetHeader.Create('Content-Type', 'application/json')];
+end;
+
+function TApiHttpHandler.BuildUrl(const Endpoint: string): string;
+begin
+  Result := FBaseUrl.TrimRight(['/']) + '/' + Endpoint.TrimLeft(['/']);
+end;
+
+function TApiHttpHandler.Client: IHttpClientAPI;
+begin
+  Result := THttpClientAPI.CreateInstance(APICheck);
+  Result.SendTimeOut := ClientHttp.SendTimeOut;
+  Result.ConnectionTimeout := ClientHttp.ConnectionTimeout;
+  Result.ResponseTimeout := ClientHttp.ResponseTimeout;
+  var Proxy := ClientHttp.ProxySettings;
+  Result.ProxySettings := TProxySettings.Create(Proxy.Host, Proxy.Port, Proxy.UserName, Proxy.Password, Proxy.Scheme);
+end;
+
+function TApiHttpHandler.GetClientHttp: IHttpClientAPI;
+begin
+  Result := FClientHttp;
+end;
+
+function TApiHttpHandler.GetHeaders: TNetHeaders;
+begin
+  Result :=
+    [TNetHeader.Create('authorization', 'Bearer ' + FAPIKey)] +
+    FCustomHeaders;
+end;
+
+procedure TApiHttpHandler.SetCustomHeaders(const Value: TNetHeaders);
+begin
+  FCustomHeaders := Value;
 end;
 
 end.

@@ -11,7 +11,8 @@ interface
 
 uses
   System.SysUtils, System.Classes, System.Net.URLClient, Deepseek.API, Deepseek.API.Params,
-  Deepseek.Models, Deepseek.Chat, Deepseek.FIM, Deepseek.User, Deepseek.Functions.Core;
+  Deepseek.Models, Deepseek.Chat, Deepseek.FIM, Deepseek.User, Deepseek.Functions.Core,
+  Deepseek.HttpClient.Intf, Deepseek.HttpClient, Deepseek.Monitoring, Deepseek.API.Parallel;
 
 type
   /// <summary>
@@ -27,10 +28,11 @@ type
   IDeepseek = interface
     ['{59A59450-F0CB-4FA3-8EF6-E8D0EB8A1118}']
     function GetAPI: TDeepseekAPI;
-    procedure SetToken(const Value: string);
-    function GetToken: string;
+    procedure SetKey(const Value: string);
+    function GetKey: string;
     function GetBaseUrl: string;
     procedure SetBaseUrl(const Value: string);
+    function GetClientHttp: IHttpClientAPI;
 
     function GetChatRoute: TChatRoute;
     function GetFIMRoute: TFIMRoute;
@@ -78,12 +80,16 @@ type
     /// <summary>
     /// Sets or retrieves the API token for authentication.
     /// </summary>
-    property Token: string read GetToken write SetToken;
+    property Key: string read GetKey write SetKey;
     /// <summary>
     /// Sets or retrieves the base URL for API requests.
     /// Default is https://api.Deepseek.com/v1
     /// </summary>
     property BaseURL: string read GetBaseUrl write SetBaseUrl;
+    /// <summary>
+    /// The HTTP client interface used for making API calls.
+    /// </summary>
+    property ClientHttp: IHttpClientAPI read GetClientHttp;
   end;
 
   /// <summary>
@@ -159,10 +165,11 @@ type
     FUserRoute: TUserRoute;
 
     function GetAPI: TDeepseekAPI;
-    function GetToken: string;
-    procedure SetToken(const Value: string);
+    function GetKey: string;
+    procedure SetKey(const Value: string);
     function GetBaseUrl: string;
     procedure SetBaseUrl(const Value: string);
+    function GetClientHttp: IHttpClientAPI;
 
     function GetChatRoute: TChatRoute;
     function GetFIMRoute: TFIMRoute;
@@ -228,7 +235,7 @@ type
     /// <returns>
     /// The current API token.
     /// </returns>
-    property Token: string read GetToken write SetToken;
+    property Token: string read GetKey write SetKey;
     /// <summary>
     /// Sets or retrieves the base URL for API requests.
     /// Default is https://api.stability.ai
@@ -730,6 +737,63 @@ type
 
   {$ENDREGION}
 
+  {$REGION 'Deepseek.API.Parallel'}
+
+  /// <summary>
+  /// Represents an item in a bundle of chat prompts and responses.
+  /// </summary>
+  /// <remarks>
+  /// This class stores information about a single chat request, including its index,
+  /// associated prompt, generated response, and related chat object.
+  /// It is used within a <c>TBundleList</c> to manage multiple asynchronous chat requests.
+  /// </remarks>
+  TBundleItem = Deepseek.API.Parallel.TBundleItem;
+
+  /// <summary>
+  /// Manages a collection of <c>TBundleItem</c> objects.
+  /// </summary>
+  /// <remarks>
+  /// This class provides methods to add, retrieve, and count items in a bundle.
+  /// It is designed to store multiple chat request items processed in parallel.
+  /// The internal storage uses a <c>TObjectList&lt;TBundleItem&gt;</c> with automatic memory management.
+  /// </remarks>
+  TBundleList = Deepseek.API.Parallel.TBundleList;
+
+  /// <summary>
+  /// Represents an asynchronous callback buffer for handling chat responses.
+  /// </summary>
+  /// <remarks>
+  /// This class is a specialized type used to manage asynchronous operations
+  /// related to chat request processing. It inherits from <c>TAsynCallBack&lt;TBundleList&gt;</c>,
+  /// enabling structured handling of callback events.
+  /// </remarks>
+  TAsynBundleList = Deepseek.API.Parallel.TAsynBundleList;
+
+  /// <summary>
+  /// Provides helper methods for managing asynchronous tasks.
+  /// </summary>
+  /// <remarks>
+  /// This class contains utility methods for handling task execution flow,
+  /// including a method to execute a follow-up action once a task completes.
+  /// <para>
+  /// - In order to replace TTask.WaitForAll due to a memory leak in TLightweightEvent/TCompleteEventsWrapper.
+  /// See report RSP-12462 and RSP-25999.
+  /// </para>
+  /// </remarks>
+  TTaskHelper = Deepseek.API.Parallel.TTaskHelper;
+
+  /// <summary>
+  /// Represents the parameters used for configuring a chat request bundle.
+  /// </summary>
+  /// <remarks>
+  /// This class extends <c>TParameters</c> and provides specific methods for setting chat-related
+  /// parameters, such as prompts, model selection, and reasoning effort.
+  /// It is used to structure and pass multiple requests efficiently in parallel processing.
+  /// </remarks>
+  TBundleParams = Deepseek.API.Parallel.TBundleParams;
+
+  {$ENDREGION}
+
 /// <summary>
 /// Creates a <see cref="TContentParams"/> instance representing a user-provided message.
 /// </summary>
@@ -789,6 +853,8 @@ function FromAssistant(const Value, Name: string; const Prefix: Boolean = False)
 /// </returns>
 function FromSystem(const Value: string; const Name: string = ''): TContentParams;
 
+function HttpMonitoring: IRequestMonitor;
+
 implementation
 
 function FromUser(const Value: string; const Name: string): TContentParams;
@@ -809,6 +875,11 @@ end;
 function FromSystem(const Value: string; const Name: string): TContentParams;
 begin
   Result := TContentParams.System(Value, Name);
+end;
+
+function HttpMonitoring: IRequestMonitor;
+begin
+  Result := Monitoring;
 end;
 
 { TDeepseek }
@@ -859,6 +930,11 @@ begin
   Result := FChatRoute;
 end;
 
+function TDeepseek.GetClientHttp: IHttpClientAPI;
+begin
+  Result := API.ClientHttp;
+end;
+
 function TDeepseek.GetFIMRoute: TFIMRoute;
 begin
   if not Assigned(FFIMRoute) then
@@ -866,9 +942,9 @@ begin
   Result := FFIMRoute;
 end;
 
-function TDeepseek.GetToken: string;
+function TDeepseek.GetKey: string;
 begin
-  Result := FAPI.Token;
+  Result := FAPI.APIKey;
 end;
 
 function TDeepseek.GetUserRoute: TUserRoute;
@@ -883,9 +959,9 @@ begin
   FAPI.BaseURL := Value;
 end;
 
-procedure TDeepseek.SetToken(const Value: string);
+procedure TDeepseek.SetKey(const Value: string);
 begin
-  FAPI.Token := Value;
+  FAPI.APIKey := Value;
 end;
 
 

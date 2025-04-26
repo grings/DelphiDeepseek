@@ -16,8 +16,8 @@ uses
   System.SysUtils, System.Classes, Winapi.Messages, FMX.Types, FMX.StdCtrls, FMX.ExtCtrls,
   FMX.Controls, FMX.Forms, Winapi.Windows, FMX.Graphics, FMX.Dialogs, FMX.Memo.Types,
   FMX.Media, FMX.Objects, FMX.Controls.Presentation, FMX.ScrollBox, FMX.Memo, System.UITypes,
-  System.Types,
-  Deepseek, Deepseek.Types;
+  System.Types, System.JSON,
+  Deepseek, Deepseek.Types, Deepseek.Async.Promise;
 
 type
   TToolProc = procedure (const Value: string) of object;
@@ -29,14 +29,24 @@ type
   TFMXTutorialHub = class
   private
     FMemo1: TMemo;
+    FMemo2: TMemo;
+    FMemo3: TMemo;
+    FMemo4: TMemo;
     FButton: TButton;
     FModelId: string;
     FTool: IFunctionCore;
     FToolCall: TToolProc;
     FCancel: Boolean;
+    FClient: IDeepseek;
     procedure OnButtonClick(Sender: TObject);
     procedure SetButton(const Value: TButton);
     procedure SetMemo1(const Value: TMemo);
+    procedure SetMemo2(const Value: TMemo);
+    procedure SetMemo3(const Value: TMemo);
+    procedure SetMemo4(const Value: TMemo);
+    procedure SetJSONRequest(const Value: string);
+    procedure SetJSONResponse(const Value: string);
+    function GetReasoning: TMemo;
   public
     /// <summary>
     /// Gets or sets the first memo component for displaying messages or data.
@@ -63,9 +73,34 @@ type
     /// </summary>
     property ToolCall: TToolProc read FToolCall write FToolCall;
     /// <summary>
+    /// Sets text for displaying JSON request.
+    /// </summary>
+    property JSONRequest: string write SetJSONRequest;
+    /// <summary>
+    /// Sets text for displaying JSON response.
+    /// </summary>
+    property JSONResponse: string write SetJSONResponse;
+    /// <summary>
+    /// Gets or sets the third memo component for displaying messages or data.
+    /// </summary>
+    property Memo3: TMemo read FMemo3 write SetMemo3;
+    /// <summary>
+    /// Get the reasoning Memo.
+    /// </summary>
+    property Reasoning: TMemo read GetReasoning;
+    /// <summary>
+    /// Instance of IDeepseek
+    /// </summary>
+    property Client: IDeepseek read FClient;
+
+    procedure JSONRequestClear;
+    procedure JSONResponseClear;
+    procedure Clear;
+    function PromiseStep(const StepName, Prompt: string; const System: string = ''): TPromise<string>;
+    /// <summary>
     /// Gets or sets a value indicating whether file overrides are allowed.
     /// </summary>
-    constructor Create(const AMemo1: TMemo; const AButton: TButton);
+    constructor Create(const AClient: IDeepseek; const AMemo1, AMemo2, AMemo3, AMemo4: TMemo; const AButton: TButton);
   end;
 
   procedure Cancellation(Sender: TObject);
@@ -86,6 +121,10 @@ type
   procedure DisplayStream(Sender: TObject; Value: TFIM); overload;
 
   procedure DisplayUsage(Sender: TObject; Value: TUsage);
+
+  procedure DisplayChunk(Value: string); overload;
+  procedure DisplayChunk(Value: TChat); overload;
+  procedure DisplayChunk(Value: TFIM); overload;
 
   function F(const Name, Value: string): string; overload;
   function F(const Name: string; const Value: TArray<string>): string; overload;
@@ -179,6 +218,7 @@ end;
 
 procedure Display(Sender: TObject; Value: TModels);
 begin
+  TutorialHub.JSONResponse := Value.JSONResponse;
   Display(Sender, 'Models list');
   if System.Length(Value.Data) = 0 then
     begin
@@ -195,6 +235,7 @@ end;
 
 procedure Display(Sender: TObject; Value: TChat);
 begin
+  TutorialHub.JSONResponse := Value.JSONResponse;
   for var Item in Value.Choices do
     if Item.FinishReason = TFinishReason.tool_calls then
       begin
@@ -203,6 +244,7 @@ begin
       end
     else
       begin
+        Display(TutorialHub.Reasoning, Item.Message.ReasoningContent.Replace('\n', #10));
         Display(Sender, Item.Message.Content.Replace('\n', #10));
         DisplayUsage(Sender, Value.Usage);
       end;
@@ -210,12 +252,14 @@ end;
 
 procedure Display(Sender: TObject; Value: TFIM);
 begin
+  TutorialHub.JSONResponse := Value.JSONResponse;
   for var Item in Value.Choices do
     Display(TutorialHub, Item.Text);
 end;
 
 procedure Display(Sender: TObject; Value: TBalance);
 begin
+  TutorialHub.JSONResponse := Value.JSONResponse;
   Display(Sender, F('is_Available', BoolToStr(Value.IsAvailable, True)));
   for var Item in Value.BalanceInfos do
     Display(Sender, [
@@ -264,13 +308,23 @@ end;
 
 procedure DisplayStream(Sender: TObject; Value: TChat);
 begin
-  DisplayStream(Sender, Value.Choices[0].Delta.Content);
+  if Assigned(Value) then
+    begin
+      DisplayChunk(Value);
+      if not Value.Choices[0].Delta.ReasoningContent.IsEmpty then
+        DisplayStream(TutorialHub.Reasoning, Value.Choices[0].Delta.ReasoningContent)
+      else
+        DisplayStream(Sender, Value.Choices[0].Delta.Content.Replace('\n', #10));
+    end;
 end;
 
 procedure DisplayStream(Sender: TObject; Value: TFIM);
 begin
   if Assigned(Value) then
-    DisplayStream(Sender, Value.Choices[0].Text);
+    begin
+      DisplayChunk(Value);
+      DisplayStream(Sender, Value.Choices[0].Text);
+    end;
 end;
 
 procedure DisplayUsage(Sender: TObject; Value: TUsage);
@@ -284,6 +338,31 @@ begin
     F('total_tokens', Value.TotalTokens.ToString)
   ]));
   Display(Sender, EmptyStr);
+end;
+
+procedure DisplayChunk(Value: string);
+begin
+  if not Value.IsEmpty then
+    begin
+      var JSONValue := TJSONObject.ParseJSONValue(Value);
+      TutorialHub.Memo3.Lines.BeginUpdate;
+      try
+        Display(TutorialHub.Memo3, JSONValue.ToString);
+      finally
+        TutorialHub.Memo3.Lines.EndUpdate;
+        JSONValue.Free;
+      end;
+    end;
+end;
+
+procedure DisplayChunk(Value: TChat);
+begin
+  DisplayChunk(Value.JSONResponse);
+end;
+
+procedure DisplayChunk(Value: TFIM);
+begin
+  DisplayChunk(Value.JSONResponse);
 end;
 
 function F(const Name, Value: string): string;
@@ -316,16 +395,101 @@ end;
 
 { TFMXTutorialHub }
 
-constructor TFMXTutorialHub.Create(const AMemo1: TMemo; const AButton: TButton);
+procedure TFMXTutorialHub.Clear;
+begin
+  JSONRequestClear;
+  JSONResponseClear;
+  FMemo4.Lines.Clear;
+end;
+
+constructor TFMXTutorialHub.Create(const AClient: IDeepseek; const AMemo1, AMemo2, AMemo3, AMemo4: TMemo; const AButton: TButton);
 begin
   inherited Create;
+  FClient := AClient;
   Memo1 := AMemo1;
   Button := AButton;
+  SetMemo2(AMemo2);
+  SetMemo3(AMemo3);
+  SetMemo4(AMemo4);
+end;
+
+function TFMXTutorialHub.GetReasoning: TMemo;
+begin
+  Result := FMemo4;
+end;
+
+procedure TFMXTutorialHub.JSONRequestClear;
+begin
+  FMemo2.Lines.Clear;
+end;
+
+procedure TFMXTutorialHub.JSONResponseClear;
+begin
+  FMemo3.Lines.Clear;
 end;
 
 procedure TFMXTutorialHub.OnButtonClick(Sender: TObject);
 begin
   Cancel := True;
+end;
+
+function TFMXTutorialHub.PromiseStep(const StepName, Prompt,
+  System: string): TPromise<string>;
+var
+  Buffer: string;
+begin
+  Result := TPromise<string>.Create(
+    procedure(Resolve: TProc<string>; Reject: TProc<Exception>)
+    begin
+      Client.Chat.AsynCreateStream(
+        procedure (Params: TChatParams)
+        begin
+          Params.Model('deepseek-chat');
+          Params.Messages([
+            FromSystem(system),
+            FromUser(Prompt)
+          ]);
+          Params.Stream;
+        end,
+        function : TAsynChatStream
+        begin
+          Result.Sender := TutorialHub;
+
+          Result.OnStart :=
+            procedure (Sender: TObject)
+            begin
+              Display(Sender, StepName + #10);
+            end;
+
+          Result.OnProgress :=
+            procedure (Sender: TObject; Chat: TChat)
+            begin
+              DisplayStream(Sender, Chat);
+              Buffer := Buffer + Chat.Choices[0].Delta.Content;
+            end;
+
+          Result.OnSuccess :=
+            procedure (Sender: TObject)
+            begin
+              Resolve(Buffer);
+            end;
+
+          Result.OnError :=
+            procedure (Sender: TObject; Error: string)
+            begin
+              Reject(Exception.Create(Error));
+            end;
+
+          Result.OnDoCancel := DoCancellation;
+
+          Result.OnCancellation :=
+            procedure (Sender: TObject)
+            begin
+              Reject(Exception.Create('Aborted'));
+            end;
+
+        end);
+    end);
 end;
 
 procedure TFMXTutorialHub.SetButton(const Value: TButton);
@@ -335,10 +499,39 @@ begin
   FButton.Text := 'Cancel';
 end;
 
+procedure TFMXTutorialHub.SetJSONRequest(const Value: string);
+begin
+  FMemo2.Lines.Text := Value;
+  FMemo2.SelStart := 0;
+  Application.ProcessMessages;
+end;
+
+procedure TFMXTutorialHub.SetJSONResponse(const Value: string);
+begin
+  FMemo3.Lines.Text := Value;
+  FMemo2.SelStart := 0;
+  Application.ProcessMessages;
+end;
+
 procedure TFMXTutorialHub.SetMemo1(const Value: TMemo);
 begin
   FMemo1 := Value;
   FMemo1.TextSettings.WordWrap := True;
+end;
+
+procedure TFMXTutorialHub.SetMemo2(const Value: TMemo);
+begin
+  FMemo2 := Value;
+end;
+
+procedure TFMXTutorialHub.SetMemo3(const Value: TMemo);
+begin
+  FMemo3 := Value;
+end;
+
+procedure TFMXTutorialHub.SetMemo4(const Value: TMemo);
+begin
+  FMemo4 := Value;
 end;
 
 initialization

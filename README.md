@@ -3,10 +3,17 @@
 ___
 ![GitHub](https://img.shields.io/badge/IDE%20Version-Delphi%2010.3/11/12-yellow)
 ![GitHub](https://img.shields.io/badge/platform-all%20platforms-green)
-![GitHub](https://img.shields.io/badge/Updated%20on%20january%2011,%202025-blue)
+![GitHub](https://img.shields.io/badge/Updated%20on%20april%2026,%202025-blue)
 
 <br/>
-<br/>
+
+NEW: 
+- [Changelog](https://github.com/MaxiDonkey/DelphiDeepseek/blob/main/Changelog.md)
+- [Deepseek-reasoner](#deepseek-reasoner)
+- [Parallel method for generating text](#parallel-method-for-generating-text)
+- [Multiple queries with chaining](#multiple-queries-with-chaining)
+- [Tips and tricks](#tips-and-tricks)
+___
 
 - [Introduction](#introduction)
 - [Remarks](#remarks)
@@ -22,6 +29,8 @@ ___
         - [Streaming messages](#streaming-messages)
         - [Multi-turn conversation](#multi-turn-conversation)
         - [Deepseek-reasoner](#deepseek-reasoner)
+        - [Parallel method for generating text](#parallel-method-for-generating-text)
+        - [Multiple queries with chaining](#multiple-queries-with-chaining)
     - [Function calling](#function-calling)
         - [Use case](#use-case)
     - [JSON Output](#json-output)
@@ -32,6 +41,7 @@ ___
         - [Completion](#completion)
         - [Streamed completion](#streamed-completion)
     - [Chat prefix completion](#chat-prefix-completion)
+- [Tips and tricks](#tips-and-tricks)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -174,6 +184,8 @@ To retrieve the list of available models, you can use the following code example
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeek.Models.AsynList(
     function : TAsynModels
@@ -195,34 +207,6 @@ To retrieve the list of available models, you can use the following code example
 
 <br/>
 
-To find a model, although this is not relevant and not specified in the official documentation:
-
-```Pascal
-// uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
-
-  TutorialHub.ModelId := 'deepseek-chat';
-
-  //Asynchronous example
-  DeepSeek.Models.AsynRetrieve(TutorialHub.ModelId,
-    function : TAsynModel
-    begin
-      Result.Sender := TutorialHub;
-      Result.OnStart := Start;
-      Result.OnSuccess := Display;
-      Result.OnError := Display;
-    end);
-
-  //Synchronous example
-//  var Value := DeepSeek.Models.Retrieve(TutorialHub.ModelId);
-//  try
-//    Display(TutorialHub, Value);
-//  finally
-//    Value.Free;
-//  end;
-```
-
-<br/>
-
 ## Chats
 
 You can send a structured list of input messages containing only text content, and the model will generate the next message in the conversation.
@@ -234,6 +218,9 @@ The Messages API can be used for both single-turn requests and multi-turn, state
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+  Deepseek.ClientHttp.ResponseTimeout := 120000;
+
   //Asynchronous example
   DeepSeek.Chat.AsynCreate(
     procedure (Params: TChatParams)
@@ -242,6 +229,7 @@ The Messages API can be used for both single-turn requests and multi-turn, state
       Params.Messages([
         FromUser('What is the capital of France, and then the capital of champagne?')
       ]);
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChat
     begin
@@ -259,6 +247,7 @@ The Messages API can be used for both single-turn requests and multi-turn, state
 //      Params.Messages([
 //        FromUser('What is the capital of France, and then the capital of champagne?')
 //      ]);
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end);
 //  try
 //    Display(TutorialHub, Value);
@@ -276,6 +265,8 @@ When generating a Message, you can enable `"stream": true` to progressively rece
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+  
   //Asynchronous example
   DeepSeek.Chat.ASynCreateStream(
     procedure (Params: TChatParams)
@@ -286,6 +277,7 @@ When generating a Message, you can enable `"stream": true` to progressively rece
       ]);
       Params.MaxTokens(1024);
       Params.Stream;
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChatStream
     begin
@@ -307,6 +299,7 @@ When generating a Message, you can enable `"stream": true` to progressively rece
 //      ]);
 //      Params.MaxTokens(1024);
 //      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end,
 //    procedure (var Chat: TChat; IsDone: Boolean; var Cancel: Boolean)
 //    begin
@@ -329,6 +322,8 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeek.Chat.ASynCreateStream(
     procedure (Params: TChatParams)
@@ -342,6 +337,7 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
       ]);
       Params.MaxTokens(1024);
       Params.Stream;
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChatStream
     begin
@@ -366,6 +362,7 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 //      ]);
 //      Params.MaxTokens(1024);
 //      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end,
 //    procedure (var Chat: TChat; IsDone: Boolean; var Cancel: Boolean)
 //    begin
@@ -397,6 +394,8 @@ To ensure compatibility with existing software, using *temperature, top_p, prese
 
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
+
+  TutorialHub.Clear;
 
   //Asynchronous example
   DeepSeek.Chat.ASynCreateStream(
@@ -443,6 +442,246 @@ end;
 
 
 <br/>
+
+### Parallel method for generating text
+
+This approach enables the simultaneous execution of multiple prompts, provided they are all processed by the same model.
+
+#### Example 1 : Two prompts processed in parallel.
+
+
+```Pascal
+// uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
+
+  TutorialHub.Clear;
+
+  DeepSeek.Chat.CreateParallel(
+    procedure (Params: TBundleParams)
+    begin
+      Params.Prompts([
+        'How many television channels were there in France in 1980?',
+        'How many TV channels were there in Germany in 1980?.'
+      ]);
+      Params.System('Write the response in capital letters.');
+      Params.Model('deepseek-chat');
+    end,
+    function : TAsynBundleList
+    begin
+      Result.Sender := TutorialHub;
+
+      Result.OnStart :=
+        procedure (Sender: TObject)
+        begin
+          Display(Sender, 'Start the job' + sLineBreak);
+        end;
+
+      Result.OnSuccess :=
+        procedure (Sender: TObject; Bundle: TBundleList)
+        begin
+          // Background bundle processing
+          for var Item in Bundle.Items do
+            begin
+              Display(Sender, 'Index : ' + Item.Index.ToString);
+              Display(Sender, 'FinishIndex : ' + Item.FinishIndex.ToString);
+              Display(Sender, Item.Prompt + sLineBreak);
+              Display(Sender, Item.Response + sLineBreak + sLineBreak);
+              // or Display(Sender, TChat(Item.Chat).Choices[0].Message.Content);
+            end;
+        end;
+
+      Result.OnError := Display;
+    end)
+```
+
+Result
+
+![Preview](/../main/images/Parallel.png?raw=true "Preview")
+
+<br>
+
+### Multiple queries with chaining
+
+In some cases, you need to chain multiple requests so that each step’s output feeds into the next. The Promise pattern is ideal for orchestrating this kind of workflow: it lets you build complex processing that a single prompt—no matter how sophisticated—couldn’t achieve on its own.
+ 
+**Implementation:** <br>
+- Be sure to include the `Deepseek.Async.Promise` unit in your `uses` clause.
+- Each Promise runs asynchronously and non-blockingly in the background, freeing the main thread for other operations.
+
+#### Process
+
+We’ll use a simple, educational scenario with three steps:
+
+ 1. Send a prompt to the deepseek-chat model.
+
+ 2. Process the received response to extract and reformat the relevant information.
+
+ 3. Generate the next prompt from the enriched result.
+
+This minimal example is designed to help you get comfortable with asynchronous execution and promise chaining. You can then customize each step to suit your specific business needs.
+
+<br>
+
+#### We will use the following 3 prompts
+
+```Delphi
+const
+  Step1 =
+    '# Do not answer the question directly.'#10 +
+    '# Consider possible lines of thought'#10 +
+    '# Break the main problem down into subproblems.'#10 +
+    '## For each subproblem: Develop a strategy to address that point.'#10 +
+    '## For each subproblem: Evaluate and then critique the strategy established.'#10 +
+    '## For each subproblem: Assess the relevance and effectiveness of the strategy.'#10 +
+    '# Formatting'#10 +
+    '## – Use everyday language to explain the reasoning.'#10 +
+    '## – Avoid lists and markdown formatting.'#10 +
+    '## – Write as if you were explaining to a third party.';
+
+  Step2 =
+    '# Build an effective outline to answer the question based on the analysis.'#10 +
+    '## Do not go into detail on each point of the outline but rather discuss its relevance.'#10 +
+    '## Identify the points that should be addressed in the thesis.'#10 +
+    '## Identify the points that should be addressed in the antithesis.'#10 +
+    '## Identify the points that should be addressed in the synthesis.'#10 +
+    '## Determine the points to cover for a powerful introduction.'#10 +
+    '## Determine the points to cover for a memorable conclusion.'#10 +
+    '# Formatting'#10 +
+    '## – Use everyday language to explain the reasoning.'#10 +
+    '## – Avoid lists and markdown formatting.'#10 +
+    '## – Write as if you were explaining to a third party.’';
+
+  Step3 =
+    '# Answer the following question in a teaching style'#10 +
+    '## Use all the information provided in the system section.';
+```
+
+<br>
+
+#### The code enabling chaining using the promise pattern
+
+```Pascal
+// uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL, Deepseek.Async.Promise;
+
+var
+  Analysis: string;
+begin
+  TutorialHub.Clear;
+
+  var Request := 'Does personal data belong to the individuals who generate it or to the platforms that collect it?';
+  var System := Step1;
+
+  TutorialHub.PromiseStep('Reasoning'#10, Request, System)
+    .&Then<string>(
+      function(Value: string): string
+      begin
+        Analysis := Value;
+        Result := 'Request : '#10 + Request + #10 + 'Analysis : ' + Analysis;
+        System := Step2;
+      end)
+    .&Then(
+      function (Value: string): TPromise<string>
+      begin
+        Result := TutorialHub.PromiseStep(#10#10'Develop a plan'#10, Value, System);
+      end)
+    .&Then<string>(
+      function(Value: string): string
+      begin
+        Result := Request + #10 + Step3 + #10 + Request;
+        System := Analysis + #10 + Value;
+      end)
+    .&Then(
+      function (Value: string): TPromise<string>
+      begin
+        Result := TutorialHub.PromiseStep(#10#10'Response'#10, Value, System);
+      end)
+    .&Catch(
+      procedure(E: Exception)
+      begin
+        Display(Memo1, 'Error : ' + E.Message);
+      end);
+end;
+```
+
+This code answers the question provided in the `Request` variable by using two intermediate steps. We will now review the body of the Promise used at each stage.
+
+![Preview](/../main/images/Promise.png?raw=true "Preview")
+
+>[!NOTE]
+>The corresponding code is available in the `Deepseek.Tutorial.VCL` and `Deepseek.Tutorial.FMX` units, depending on the platform on which you are running the test.
+
+```Pascal
+function TFMXTutorialHub.PromiseStep(const StepName, Prompt,
+  System: string): TPromise<string>;
+var
+  Buffer: string;
+begin
+  Result := TPromise<string>.Create(
+    procedure(Resolve: TProc<string>; Reject: TProc<Exception>)
+    begin
+      Client.Chat.AsynCreateStream(
+        procedure (Params: TChatParams)
+        begin
+          Params.Model('deepseek-chat');
+          Params.Messages([
+            FromSystem(system),
+            FromUser(Prompt)
+          ]);
+          Params.Stream;
+        end,
+        function : TAsynChatStream
+        begin
+          Result.Sender := TutorialHub;
+
+          Result.OnStart :=
+            procedure (Sender: TObject)
+            begin
+              Display(Sender, StepName + #10);
+            end;
+
+          Result.OnProgress :=
+            procedure (Sender: TObject; Chat: TChat)
+            begin
+              DisplayStream(Sender, Chat);
+              Buffer := Buffer + Chat.Choices[0].Delta.Content;
+            end;
+
+          Result.OnSuccess :=
+            procedure (Sender: TObject)
+            begin
+              Resolve(Buffer); //The promise is resolved --> &Then<string>
+            end;
+
+          Result.OnError :=
+            procedure (Sender: TObject; Error: string)
+            begin
+              Reject(Exception.Create(Error));  //The promise is rejected --> &Catch
+            end;
+
+          Result.OnDoCancel := DoCancellation;
+
+          Result.OnCancellation :=
+            procedure (Sender: TObject)
+            begin
+              Reject(Exception.Create('Aborted'));  //The promise is rejected --> Catch
+            end;
+
+        end);
+    end);
+end;
+ 
+```
+
+<br>
+
+#### Note
+
+This approach proves to be particularly powerful for handling asynchronous mechanisms. However, when a process involves a large number of steps, the resulting code can quickly become difficult to maintain, leading to what is commonly referred to as a "pyramid of doom."
+
+To avoid this, it is recommended to adopt a Pipeline mechanism, which organizes and chains the steps in a clear, streamlined, and structured way.
+
+[An example implementation](https://github.com/MaxiDonkey/SynkFlowAI) based on the [GenAI wrapper for OpenAI](https://github.com/MaxiDonkey/DelphiGenAI) is available. With a few minor adjustments, it can also be used with Deepseek, except for the web search functionality.
+
+<br>
 
 ## Function calling
 
@@ -504,7 +743,6 @@ begin
         FromSystem('You are a star weather presenter on a national TV channel.'),
         FromUser(Value)
       ]);
-      Params.MaxTokens(1024);
       Params.Stream;
     end,
     function : TAsynChatStream
@@ -524,7 +762,8 @@ end;
 
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Functions.Example, Deepseek.Tutorial.VCL;
-
+  
+  TutorialHub.Clear;
   var Weather := TWeatherReportFunction.CreateInstance;
   TutorialHub.Tool := Weather;
   TutorialHub.ToolCall := DisplayWeather;
@@ -539,7 +778,7 @@ end;
       ]);
       Params.Tools([Weather]);
       Params.ToolChoice(auto);
-      Params.MaxTokens(1024);
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChat
     begin
@@ -576,6 +815,8 @@ Refer to [official documentation](https://api-docs.deepseek.com/guides/json_mode
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeek.Chat.AsynCreate(
     procedure (Params: TChatParams)
@@ -585,7 +826,8 @@ Refer to [official documentation](https://api-docs.deepseek.com/guides/json_mode
         TContentParams.System('The user will provide some exam text. Please parse the "question" and "answer" and output them in JSON format. EXAMPLE INPUT: Which is the highest mountain in the world? Mount Everest. EXAMPLE JSON OUTPUT: {     "question": "Which is the highest mountain in the world?",     "answer": "Mount Everest" }'),
         TContentParams.User('Which is the longest river in the world? The Nile River')
       ]);
-      Params.ResponseFormat(json_object);
+      Params.ResponseFormat(TResponseFormat.json_object);
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChat
     begin
@@ -604,6 +846,8 @@ Refer to [official documentation](https://api-docs.deepseek.com/guides/json_mode
 //        TContentParams.System('The user will provide some exam text. Please parse the "question" and "answer" and output them in JSON format. EXAMPLE INPUT: Which is the highest mountain in the world? Mount Everest. EXAMPLE JSON OUTPUT: {     "question": "Which is the highest mountain in the world?",     "answer": "Mount Everest" }'),
 //        TContentParams.User('Which is the longest river in the world? The Nile River')
 //      ]);
+//      Params.ResponseFormat(TResponseFormat.json_object);
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end);
 //  try
 //    Display(TutorialHub, Value);
@@ -641,6 +885,8 @@ View account details, including available credit balance.
 
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
+
+  TutorialHub.Clear;
 
   //Asynchronous example
   DeepSeek.User.AsynBalance(
@@ -683,6 +929,8 @@ In Fill-In-the-Middle (FIM) completion, users can specify a prefix and optionall
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeekBeta.FIM.AsynCreate(
     procedure (Params: TFIMParams)
@@ -690,7 +938,7 @@ In Fill-In-the-Middle (FIM) completion, users can specify a prefix and optionall
       Params.Model('deepseek-chat');
       Params.Prompt('def fib(a):');
       Params.Suffix('    return fib(a-1) + fib(a-2)');
-      Params.MaxTokens(1024);
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynFIM
     begin
@@ -707,7 +955,7 @@ In Fill-In-the-Middle (FIM) completion, users can specify a prefix and optionall
 //      Params.Model('deepseek-chat');
 //      Params.Prompt('def fib(a):');
 //      Params.Suffix('    return fib(a-1) + fib(a-2)');
-//      Params.MaxTokens(1024);
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end);
 //  try
 //    Display(TutorialHub, Value);
@@ -734,6 +982,8 @@ The model will output:
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeekBeta.FIM.AsynCreateStream(
     procedure (Params: TFIMParams)
@@ -741,8 +991,8 @@ The model will output:
       Params.Model('deepseek-chat');
       Params.Prompt('def fib(a):');
       Params.Suffix('  return fib(a-1) + fib(a-2)');
-      Params.MaxTokens(1024);
       Params.Stream;
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynFIMStream
     begin
@@ -761,8 +1011,8 @@ The model will output:
 //      Params.Model('deepseek-chat');
 //      Params.Prompt('def fib(a):');
 //      Params.Suffix('  return fib(a-1) + fib(a-2)');
-//      Params.MaxTokens(1024);
 //      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
 //    end,
 //    procedure (var FIM: TFIM; IsDone: Boolean; var Cancel: Boolean)
 //    begin
@@ -784,6 +1034,8 @@ When using prefix completion, it is essential to ensure that the role of the las
 ```Pascal
 // uses Deepseek, Deepseek.Types, Deepseek.Tutorial.VCL;
 
+  TutorialHub.Clear;
+
   //Asynchronous example
   DeepSeekBeta.Chat.AsynCreate(
     procedure (Params: TChatParams)
@@ -794,6 +1046,7 @@ When using prefix completion, it is essential to ensure that the role of the las
         FromAssistant('```python\n', True)
       ]);
       Params.Stop('```');
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChat
     begin
@@ -823,6 +1076,32 @@ arr = [3, 6, 8, 10, 1, 2, 1]
 sorted_arr = quick_sort(arr)
 print("Sorted array:", sorted_arr)
 ```
+
+<br>
+
+# Tips and tricks
+
+## How to prevent an error when closing an application while requests are still in progress?
+
+Starting from version 1.0.2 of Deepseek, the Deepseek.Monitoring unit is responsible for monitoring ongoing HTTP requests.
+
+The Monitoring interface is accessible by including the Deepseek.Monitoring unit in the uses clause.
+Alternatively, you can access it via the HttpMonitoring function, declared in the Deepseek unit.
+
+### Usage example
+
+```Delphi
+procedure TForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := not HttpMonitoring.IsBusy;
+  if not CanClose then
+    MessageDLG(
+      'Requests are still in progress. Please wait for them to complete before closing the application."',
+      TMsgDlgType.mtInformation, [TMsgDlgBtn.mbOK], 0);
+end;
+```
+
+<br>
 
 # Contributing
 
