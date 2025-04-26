@@ -8,30 +8,30 @@ ___
 <br/>
 <br/>
 
-- [Introduction](#Introduction)
+- [Introduction](#introduction)
 - [Remarks](#remarks)
-- [Wrapper Tools Info](#Wrapper-Tools-Info)
-    - [Tools for simplifying this tutorial](#Tools-for-simplifying-this-tutorial)
-    - [Asynchronous callback mode management](#Asynchronous-callback-mode-management)
-    - [Simplified Unit Declaration](#Simplified-Unit-Declaration) 
+- [Wrapper Tools Info](#wrapper-tools-info)
+    - [Tools for simplifying this tutorial](#tools-for-simplifying-this-tutorial)
+    - [Asynchronous callback mode management](#asynchronous-callback-mode-management)
+    - [Simplified Unit Declaration](#simplified-unit-declaration) 
 - [Usage](#usage)
     - [Initialization](#initialization)
-    - [Deepseek Models Overview](#Deepseek-Models-Overview)
+    - [Deepseek Models Overview](#deepseek-models-overview)
     - [Chats](#chats)
-        - [Create a message](#Create-a-message)
-        - [Streaming messages](#Streaming-messages)
-        - [Multi-turn conversation](#Multi-turn-conversation)
-        - [Deepseek-reasoner](#Deepseek-reasoner)
+        - [Create a message](#create-a-message)
+        - [Streaming messages](#streaming-messages)
+        - [Multi-turn conversation](#multi-turn-conversation)
+        - [Deepseek-reasoner](#deepseek-reasoner)
     - [Function calling](#function-calling)
-        - [Use case](#Use-case)
-    - [JSON Output](#JSON-Output)
-    - [Context Caching](#Context-Caching)
-    - [Get user balance](#Get-user-balance)
-- [Beta version](#Beta-version)
-    - [FIM Completion](#FIM-Completion)
-        - [Completion](#Completion)
-        - [Streamed completion](#Streamed-completion)
-    - [Chat prefix completion](#Chat-prefix-completion)
+        - [Use case](#use-case)
+    - [JSON Output](#json-output)
+    - [Context Caching](#context-caching)
+    - [Get user balance](#get-user-balance)
+- [Beta version](#beta-version)
+    - [FIM Completion](#fim-completion)
+        - [Completion](#completion)
+        - [Streamed completion](#streamed-completion)
+    - [Chat prefix completion](#chat-prefix-completion)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -70,7 +70,7 @@ To streamline the code examples provided in this tutorial and facilitate quick i
 >[!TIP]
 >```Pascal
 > //uses Deepseek.Tutorial.VCL;
-> TutorialHub := TVCLTutorialHub.Create(Memo1, Button1);
+> TutorialHub := TVCLTutorialHub.Create(Deepseek, Memo1, Memo2, Memo3, Memo4, Button2);
 >```
 
 or
@@ -78,10 +78,10 @@ or
 >[!TIP]
 >```Pascal
 > //uses Deepseek.Tutorial.FMX;
-> TutorialHub := TFMXTutorialHub.Create(Memo1, Button1);
+> TutorialHub := TFMXTutorialHub.Create(Deepseek, Memo1, Memo2, Memo3, Memo4, Button2);
 >```
 
-Make sure to add a `TMemo` and a `TButton` component to your form beforehand.
+Make sure to add a three `TMemo`, a `TButton` component to your form beforehand and Deepseek then client ([see bellow.](#initialization)) 
 
 The `TButton` will allow the interruption of any streamed reception.
 
@@ -384,6 +384,7 @@ Please refer to the [dedicated page](https://api-docs.deepseek.com/guides/reason
 
 >[!WARNING]
 >**Important Note:** This model does not support *function calls, JSON-formatted outputs, or the fill-in-the-middle (FIM) method*.
+> The parameter to control the CoT length (reasoning_effort) will be available soon.
 
 **Unsupported parameters:**
 - *temperature, top_p, presence_penalty, frequency_penalty, logprobs, top_logprobs.*
@@ -405,8 +406,8 @@ To ensure compatibility with existing software, using *temperature, top_p, prese
       Params.Messages([
         FromUser('What does the ability to reason bring to language models?')
       ]);
-      Params.MaxTokens(1024);
       Params.Stream;
+      TutorialHub.JSONRequest := Params.ToFormat();
     end,
     function : TAsynChatStream
     begin
@@ -419,7 +420,26 @@ To ensure compatibility with existing software, using *temperature, top_p, prese
     end);
 ```
 
-It may take between 8 and 15 seconds before displaying the response.
+In the sample code provided with the DisplayStream method, you can see how to handle the reasoning portion separately from the final response generation:
+
+```Delphi
+procedure DisplayStream(Sender: TObject; Value: TChat);
+begin
+  if Assigned(Value) then
+    begin
+      DisplayChunk(Value);
+      if not Value.Choices[0].Delta.ReasoningContent.IsEmpty then
+        {--- Display reasoning chunk }
+        DisplayStream(TutorialHub.Reasoning, Value.Choices[0].Delta.ReasoningContent)
+      else
+        {--- Display responses chunk }
+        DisplayStream(Sender, Value.Choices[0].Delta.Content.Replace('\n', #10));
+    end;
+end;  
+```
+
+
+![Preview](/../main/images/ReasoningStream.png?raw=true "Preview")
 
 
 <br/>
