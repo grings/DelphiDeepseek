@@ -662,7 +662,7 @@ begin
           Result.OnCancellation :=
             procedure (Sender: TObject)
             begin
-              Reject(Exception.Create('Aborted'));  //The promise is rejected --> Catch
+              Reject(Exception.Create('Aborted'));  //The promise is rejected --> &Catch
             end;
 
         end);
