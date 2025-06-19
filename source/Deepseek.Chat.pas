@@ -12,8 +12,8 @@ interface
 uses
   System.SysUtils, System.Classes, REST.JsonReflect, System.JSON, System.Threading,
   REST.Json.Types, Deepseek.API.Params, Deepseek.API, Deepseek.Types,
-  Deepseek.Async.Params, Deepseek.Async.Support, Deepseek.Functions.Tools,
-  Deepseek.Functions.Core, Deepseek.API.Parallel;
+  Deepseek.Async.Params, Deepseek.Async.Support, Deepseek.Async.Promise,
+  Deepseek.Functions.Tools, Deepseek.Functions.Core, Deepseek.API.Parallel;
 
 type
   /// <summary>
@@ -25,19 +25,23 @@ type
     /// The role of the messages author.
     /// </summary>
     function Role(const Value: TMessageRole): TContentParams; overload;
+
     /// <summary>
     /// The role of the messages author.
     /// </summary>
     function Role(const Value: string): TContentParams; overload;
+
     /// <summary>
     /// An optional name for the participant. Provides the model information to differentiate between
     /// participants of the same role.
     /// </summary>
     function Name(const Value: string): TContentParams;
+
     /// <summary>
     /// The contents of the system message.
     /// </summary>
     function Content(const Value: string): TContentParams; overload;
+
     /// <summary>
     /// Gets or sets the content of the message.
     /// </summary>
@@ -46,17 +50,20 @@ type
     /// in the chat, whether it's from the user, the assistant, or the system.
     /// </remarks>
     function Content(const Value: TJSONArray): TContentParams; overload;
+
     /// <summary>
     /// (Beta) Set this to true to force the model to start its answer by the content of the supplied
     /// prefix in this assistant message. You must set base_url="https://api.deepseek.com/beta" to use
     /// this feature.
     /// </summary>
     function Prefix(const Value: Boolean): TContentParams;
+
     /// <summary>
     /// (Beta) Used for the deepseek-reasoner model in the Chat Prefix Completion feature as the input for the CoT
     /// in the last assistant message. When using this feature, the prefix parameter must be set to true.
     /// </summary>
     function ReasoningContent(const Value: string): TContentParams;
+
     /// <summary>
     /// Creates a new chat message payload with the role of the system.
     /// </summary>
@@ -73,6 +80,7 @@ type
     /// This method is used to create system-level messages, which may be used for notifications, warnings, or other system-related interactions.
     /// </remarks>
     class function System(const Content: string; const Name: string = ''): TContentParams;
+
     /// <summary>
     /// Creates a new chat message payload with the role of the user.
     /// </summary>
@@ -89,6 +97,7 @@ type
     /// This method is used to create messages from the user's perspective, typically representing inputs or queries in the conversation.
     /// </remarks>
     class function User(const Content: string; const Name: string = ''): TContentParams; overload;
+
     /// <summary>
     /// Creates a new chat message payload with the role of the assistant.
     /// </summary>
@@ -105,6 +114,7 @@ type
     /// This method is a convenience for creating assistant messages. Use this method when the assistant needs to respond to the user or system.
     /// </remarks>
     class function Assistant(const Content: string; const Prefix: Boolean = False): TContentParams; overload;
+
     /// <summary>
     /// Creates a new chat message payload with the role of the assistant.
     /// </summary>
@@ -156,6 +166,7 @@ type
   TChatParams = class(TJSONParam)
   public
     function Messages(const Value: TArray<TJSONParam>): TChatParams;
+
     /// <summary>
     /// Specifies the identifier of the model to use.
     /// </summary>
@@ -170,6 +181,7 @@ type
     /// This parameter is required and determines which model will process the request.
     /// </remarks>
     function Model(const Value: string): TChatParams;
+
     /// <summary>
     /// Frequency_penalty penalizes the repetition of words based on their frequency in the generated text.
     /// </summary>
@@ -184,6 +196,7 @@ type
     /// frequently in the output, promoting diversity and reducing repetition.
     /// </remarks>
     function FrequencyPenalty(const Value: Double): TChatParams;
+
     /// <summary>
     /// Sets the maximum number of tokens to generate in the completion.
     /// The total token count of your prompt plus <c>max_tokens</c> cannot exceed the model's context length.
@@ -196,6 +209,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function MaxTokens(const Value: Integer): TChatParams;
+
     /// <summary>
     /// Presence_penalty determines how much the model penalizes the repetition of words or phrases
     /// </summary>
@@ -210,6 +224,7 @@ type
     /// making the output more diverse and creative.
     /// </remarks>
     function PresencePenalty(const Value: Double): TChatParams;
+
     /// <summary>
     /// Specifies the format in which the model should return the response. This can include formats like JSON or plain text.
     /// </summary>
@@ -221,6 +236,7 @@ type
     /// If not specified, the default value is <c>{ "type": "text" }</c>. When using JSON mode, it's necessary to instruct the model to produce JSON explicitly through the system or user messages.
     /// </remarks>
     function ResponseFormat(const Value: TResponseFormat): TChatParams; overload;
+
     /// <summary>
     /// Specifies the format in which the model should return the response. This can include formats like JSON or plain text.
     /// </summary>
@@ -232,6 +248,7 @@ type
     /// If not specified, the default value is <c>{ "type": "text" }</c>. When using JSON mode, it's necessary to instruct the model to produce JSON explicitly through the system or user messages.
     /// </remarks>
     function ResponseFormat(const Value: string): TChatParams; overload;
+
     /// <summary>
     /// Stop (string)
     /// Stop generation if this token is detected. Or if one of these tokens is detected when providing an array
@@ -243,6 +260,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function Stop(const Value: string): TChatParams; overload;
+
     /// <summary>
     /// Stop Array of Stop (strings) (Stop)
     /// Stop generation if this token is detected. Or if one of these tokens is detected when providing an array
@@ -254,6 +272,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function Stop(const Value: TArray<string>): TChatParams; overload;
+
     /// <summary>
     /// Specifies whether to stream back partial progress as server-sent events (SSE).
     /// If <c>true</c>, tokens are sent as they become available.
@@ -266,6 +285,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function Stream(const Value: Boolean = True): TChatParams;
+
     /// <summary>
     /// Options for streaming response. Only set this when you set stream: true.
     /// </summary>
@@ -281,6 +301,7 @@ type
     /// always be an empty array. All other chunks will also include a usage field, but with a null value.
     /// </remarks>
     function StreamOptions(const Value: Boolean): TChatParams;
+
     /// <summary>
     /// Sets the sampling temperature to use for the model's output.
     /// Higher values like 0.8 make the output more random, while lower values like 0.2 make it more focused and deterministic.
@@ -293,6 +314,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function Temperature(const Value: Double): TChatParams;
+
     /// <summary>
     /// Sets the nucleus sampling probability mass for the model (Top-p).
     /// For example, 0.1 means only the tokens comprising the top 10% probability mass are considered.
@@ -305,6 +327,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function TopP(const Value: Double): TChatParams;
+
     /// <summary>
     /// Specifies a list of tools that the model can use to generate structured outputs such as JSON inputs for function calls.
     /// </summary>
@@ -318,6 +341,7 @@ type
     /// These tools can include functions that the model can utilize when generating output. For example, they can help the model produce structured data for specific tasks.
     /// </remarks>
     function Tools(const Value: TArray<TChatMessageTool>): TChatParams; overload;
+
     /// <summary>
     /// Specifies a list of tools that the model can use to generate structured outputs such as JSON inputs for function calls.
     /// </summary>
@@ -331,6 +355,7 @@ type
     /// These tools can include functions that the model can utilize when generating output. For example, they can help the model produce structured data for specific tasks.
     /// </remarks>
     function Tools(const Value: TArray<IFunctionCore>): TChatParams; overload;
+
     /// <summary>
     /// Configures how the model interacts with functions. This can either prevent, allow, or require function calls depending on the setting.
     /// </summary>
@@ -346,6 +371,7 @@ type
     /// If set to <c>required</c>, the model is required to call a function.
     /// </remarks>
     function ToolChoice(const Value: TToolChoice): TChatParams; overload;
+
     /// <summary>
     /// Configures how the model interacts with functions. This can either prevent, allow, or require function calls depending on the setting.
     /// </summary>
@@ -361,6 +387,7 @@ type
     /// If set to <c>required</c>, the model is required to call a function.
     /// </remarks>
     function ToolChoice(const Value: string): TChatParams; overload;
+
     /// <summary>
     /// Whether to return log probabilities of the output tokens or not. If true, returns the log probabilities of each output token returned in the content of message.
     /// </summary>
@@ -371,6 +398,7 @@ type
     /// The updated <c>TChatParams</c> instance.
     /// </returns>
     function Logprobs(const Value: Boolean): TChatParams;
+
     /// <summary>
     /// An integer between 0 and 20 specifying the number of most likely tokens to return at each token position, each with an associated log probability.
     /// logprobs must be set to true if this parameter is used.
@@ -385,6 +413,31 @@ type
   end;
 
   /// <summary>
+  /// Represents the buffer for accumulating streamed chat response data.
+  /// </summary>
+  /// <remarks>
+  /// <para>The <c>TPromiseBuffer</c> record stores information collected during a streaming chat operation.</para>
+  /// <para><see cref="Content"/> holds the incremental text output from the assistant as it arrives.</para>
+  /// <para><see cref="Reasoning"/> holds any reasoning content delivered before the final output.</para>
+  /// <para>This buffer is returned to the caller once the stream completes.</para>
+  /// </remarks>
+  TPromiseBuffer = record
+  private
+    FContent: string;
+    FReasoning: string;
+  public
+    /// <summary>
+    /// Gets or sets the concatenated text output received so far.
+    /// </summary>
+    property Content: string read FContent write FContent;
+
+    /// <summary>
+    /// Gets or sets the concatenated reasoning content received so far.
+    /// </summary>
+    property Reasoning: string read FReasoning write FReasoning;
+  end;
+
+  /// <summary>
   /// Represents the specifics of a called function, including its name and calculated arguments.
   /// </summary>
   TFunction = class
@@ -396,6 +449,7 @@ type
     /// Gets or sets the name of the called function
     /// </summary>
     property Name: string read FName write FName;
+
     /// <summary>
     /// Gets or sets the calculed Arguments for the called function
     /// </summary>
@@ -415,14 +469,17 @@ type
     /// Gets or sets the id of the called function
     /// </summary>
     property Id: string read FId write FId;
+
     /// <summary>
     /// Gets or sets the type of the called function
     /// </summary>
     property &Type: string read FType write FType;
+
     /// <summary>
     /// Gets or sets the specifics of the called function
     /// </summary>
     property &Function: TFunction read FFunction write FFunction;
+
     /// <summary>
     /// Destructor that ensures proper memory management by freeing the <c>FFunction</c> property
     /// when the <c>TToolCalls</c> instance is destroyed.
@@ -463,6 +520,7 @@ type
     /// The <c>Content</c> property stores the actual message text. This can include user inputs, assistant-generated replies, or system instructions.
     /// </remarks>
     property Content: string read FContent write FContent;
+
     /// <summary>
     /// The role of the author of this message, indicating the sender (e.g., user, assistant, or system).
     /// </summary>
@@ -471,6 +529,7 @@ type
     /// "assistant" for responses generated by the AI, or "system" for control messages.
     /// </remarks>
     property Role: TMessageRole read FRole write FRole;
+
     /// <summary>
     /// A list of tool calls to be executed for query completion.
     /// </summary>
@@ -479,10 +538,12 @@ type
     /// This is typically used when the assistant needs to call external APIs or perform specific actions before delivering a final response.
     /// </remarks>
     property ToolCalls: TArray<TToolCalls> read FToolCalls write FToolCalls;
+
     /// <summary>
     /// For deepseek-reasoner model only. The reasoning contents of the assistant message, before the final answer.
     /// </summary>
     property ReasoningContent: string read FReasoningContent write FReasoningContent;
+
     /// <summary>
     /// Destructor to release any resources used by this instance.
     /// </summary>
@@ -517,11 +578,13 @@ type
     /// The current token.
     /// </summary>
     property Token: string read FToken write FToken;
+
     /// <summary>
     /// The log probability of this token, if it is within the top 20 most likely tokens. Otherwise,
     /// the value -9999.0 is used to signify that the token is very unlikely.
     /// </summary>
     property Logprob: Double read FLogprob write FLogprob;
+
     /// <summary>
     /// A list of integers representing the UTF-8 bytes representation of the token. Useful in instances
     /// where characters are represented by multiple tokens and their byte representations must be
@@ -561,11 +624,13 @@ type
     /// The current token.
     /// </summary>
     property Token: string read FToken write FToken;
+
     /// <summary>
     /// The log probability of this token, if it is within the top 20 most likely tokens. Otherwise,
     /// the value -9999.0 is used to signify that the token is very unlikely.
     /// </summary>
     property Logprob: Double read FLogprob write FLogprob;
+
     /// <summary>
     /// A list of integers representing the UTF-8 bytes representation of the token. Useful in instances
     /// where characters are represented by multiple tokens and their byte representations must be
@@ -573,11 +638,13 @@ type
     /// representation for the token.
     /// </summary>
     property Bytes: TArray<int64> read FBytes write FBytes;
+
     /// <summary>
     /// List of the most likely tokens and their log probability, at this token position. In rare cases,
     /// there may be fewer than the number of requested top_logprobs returned.
     /// </summary>
     property TopLogprobs: TArray<TTopLogprobs> read FTopLogprobs write FTopLogprobs;
+
     /// <summary>
     /// Destructor to release any resources used by this instance.
     /// </summary>
@@ -606,6 +673,7 @@ type
     /// Log probability information for the choice.
     /// </summary>
     property Content: TArray<TLogprobContent> read FContent write FContent;
+
     /// <summary>
     /// Destructor to release any resources used by this instance.
     /// </summary>
@@ -645,6 +713,7 @@ type
     /// The <c>Content</c> property stores the actual message text. This can include user inputs, assistant-generated replies, or system instructions.
     /// </remarks>
     property Content: string read FContent write FContent;
+
     /// <summary>
     /// The role of the author of this message, indicating the sender (e.g., user, assistant, or system).
     /// </summary>
@@ -653,6 +722,7 @@ type
     /// "assistant" for responses generated by the AI, or "system" for control messages.
     /// </remarks>
     property Role: TMessageRole read FRole write FRole;
+
     /// <summary>
     /// For deepseek-reasoner model only. The reasoning contents of the assistant message, before the final answer.
     /// </summary>
@@ -703,6 +773,7 @@ type
     /// inference system.
     /// </remarks>
     property FinishReason: TFinishReason read FFinishReason write FFinishReason;
+
     /// <summary>
     /// The index of the choice in the list of possible choices generated by the model.
     /// </summary>
@@ -711,6 +782,7 @@ type
     /// This is useful when multiple options are generated for completion, and each one is referenced by its index.
     /// </remarks>
     property Index: Int64 read FIndex write FIndex;
+
     /// <summary>
     /// A chat completion message generated by the AI model.
     /// </summary>
@@ -719,10 +791,12 @@ type
     /// This is typically a complete message representing the AI's response to a user or system message.
     /// </remarks>
     property Message: TChoiceMessage read FMessage write FMessage;
+
     /// <summary>
     /// Log probability information for the choice.
     /// </summary>
     property Logprobs: TLogprobs read FLogprobs write FLogprobs;
+
     /// <summary>
     /// A chat completion delta representing partial responses generated during streaming.
     /// </summary>
@@ -731,6 +805,7 @@ type
     /// This allows the model to progressively generate and deliver a response before it is fully completed.
     /// </remarks>
     property Delta: TDelta read FDelta write FDelta;
+
     /// <summary>
     /// Destructor to clean up resources used by the <c>TChatChoices</c> instance.
     /// </summary>
@@ -763,18 +838,22 @@ type
     /// Number of tokens in the generated completion.
     /// </summary>
     property CompletionTokens: Int64 read FCompletionTokens write FCompletionTokens;
+
     /// <summary>
     /// Number of tokens in the prompt. It equals prompt_cache_hit_tokens + prompt_cache_miss_tokens.
     /// </summary>
     property PromptTokens: Int64 read FPromptTokens write FPromptTokens;
+
     /// <summary>
     /// Number of tokens in the prompt that hits the context cache.
     /// </summary>
     property PromptCacheHitTokens: Int64 read FPromptCacheHitTokens write FPromptCacheHitTokens;
+
     /// <summary>
     /// Number of tokens in the prompt that misses the context cache.
     /// </summary>
     property PromptCacheMissTokens: Int64 read FPromptCacheMissTokens write FPromptCacheMissTokens;
+
     /// <summary>
     /// Total number of tokens used in the request (prompt + completion).
     /// </summary>
@@ -811,6 +890,7 @@ type
     /// This is useful for tracking and managing chat sessions or retrieving the results of a particular interaction.
     /// </remarks>
     property Id: string read FId write FId;
+
     /// <summary>
     /// A list of chat completion choices generated by the model.
     /// </summary>
@@ -819,6 +899,7 @@ type
     /// generated by the AI model. There may be multiple choices if the request asked for more than one completion.
     /// </remarks>
     property Choices: TArray<TChatChoice> read FChoices write FChoices;
+
     /// <summary>
     /// The Unix timestamp (in seconds) of when the chat completion was created.
     /// </summary>
@@ -827,6 +908,7 @@ type
     /// useful for logging, auditing, or ordering chat completions chronologically.
     /// </remarks>
     property Created: Int64 read FCreated write FCreated;
+
     /// <summary>
     /// The model used for the chat completion.
     /// </summary>
@@ -835,10 +917,12 @@ type
     /// when comparing results across different models or tracking which model versions are producing responses.
     /// </remarks>
     property Model: string read FModel write FModel;
+
     /// <summary>
     /// This fingerprint represents the backend configuration that the model runs with.
     /// </summary>
     property SystemFingerprint: string read FSystemFingerprint write FSystemFingerprint;
+
     /// <summary>
     /// The object type, which is always "chat.completion".
     /// </summary>
@@ -847,6 +931,7 @@ type
     /// providing a clear indication of the response type when working with multiple object types in a system.
     /// </remarks>
     property &Object: string read FObject write FObject;
+
     /// <summary>
     /// Usage statistics for the completion request, including token counts for the prompt and completion.
     /// </summary>
@@ -855,6 +940,7 @@ type
     /// tokens used in the prompt and those generated in the completion. This data is important for monitoring API usage and costs.
     /// </remarks>
     property Usage: TUsage read FUsage write FUsage;
+
     /// <summary>
     /// Destructor to clean up resources used by the <c>TChatChoices</c> instance.
     /// </summary>
@@ -872,6 +958,16 @@ type
   TAsynChat = TAsynCallBack<TChat>;
 
   /// <summary>
+  /// Represents a promise-based callback for an asynchronous chat operation.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseChat</c> alias extends <see cref="TPromiseCallBack&lt;TChat&gt;"/>
+  /// to provide a promise-style API for chat completions, yielding a <see cref="TChat"/>
+  /// instance when the operation succeeds or raising an exception on failure.
+  /// </remarks>
+  TPromiseChat = TPromiseCallBack<TChat>;
+
+  /// <summary>
   /// Manages asynchronous streaming chat callBacks for a chat request using <c>TChat</c> as the response type.
   /// </summary>
   /// <remarks>
@@ -880,6 +976,16 @@ type
   /// This structure is ideal for handling scenarios where the chat response is streamed incrementally, providing real-time updates to the user interface.
   /// </remarks>
   TAsynChatStream = TAsynStreamCallBack<TChat>;
+
+  /// <summary>
+  /// Represents a promise-based callback for streaming chat operations.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseChatStream</c> alias extends <see cref="TPromiseStreamCallBack&lt;TChat&gt;"/>
+  /// to provide a promise-style API for streaming chat completions, delivering incremental <see cref="TChat"/>
+  /// updates until the stream finishes or an error is encountered.
+  /// </remarks>
+  TPromiseChatStream = TPromiseStreamCallBack<TChat>;
 
   /// <summary>
   /// Represents a callback procedure used during the reception of responses from a chat request in streaming mode.
@@ -922,6 +1028,153 @@ type
   /// </remarks>
   TChatRoute = class(TDeepseekAPIRoute)
     /// <summary>
+    /// Initiates an asynchronous chat completion and returns a promise for the result.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure to configure the chat parameters (model, messages, etc.) before sending the request.
+    /// </param>
+    /// <param name="CallBacks">
+    /// An optional function that provides a <see cref="TPromiseChat"/> record for hooking into lifecycle events.
+    /// </param>
+    /// <returns>
+    /// A <see cref="TPromise&lt;TChat&gt;"/> that resolves with the completed <see cref="TChat"/> response or rejects on error.
+    /// </returns>
+    /// <remarks>
+    /// This method wraps the callback-based <see cref="AsynCreate"/> in a promise interface, enabling async/await usage.
+    /// If <paramref name="CallBacks"/> is omitted, only the promise resolution is available.
+    /// </remarks>
+    function AsyncAwaitCreate(const ParamProc: TProc<TChatParams>;
+      const CallBacks: TFunc<TPromiseChat> = nil): TPromise<TChat>;
+
+    /// <summary>
+    /// Initiates an asynchronous streaming chat completion and returns a promise for the streaming buffer.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure to configure the streaming chat parameters (model, messages, stream options, etc.).
+    /// </param>
+    /// <param name="CallBacks">
+    /// A function that provides a <see cref="TPromiseChatStream"/> record for handling streaming lifecycle events.
+    /// </param>
+    /// <returns>
+    /// A <see cref="TPromise&lt;TPromiseBuffer&gt;"/> that resolves with a <see cref="TPromiseBuffer"/>
+    /// containing accumulated content and reasoning once the stream completes, or rejects on error.
+    /// </returns>
+    /// <remarks>
+    /// <para>This method wraps the callback-based <see cref="AsynCreateStream"/> in a promise interface,
+    /// enabling async/await usage for streaming scenarios.</para>
+    /// <para>If you omit <paramref name="CallBacks"/>, you can still await the returned promise to get the final buffer.</para>
+    /// </remarks>
+    function AsyncAwaitCreateStream(
+      const ParamProc: TProc<TChatParams>;
+      const CallBacks: TFunc<TPromiseChatStream>): TPromise<TPromiseBuffer>;
+
+    /// <summary>
+    /// Initiates parallel processing of multiple chat prompts and returns a promise for the bundled results.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure to configure the bundle parameters (model, prompts, reasoning effort, etc.) before dispatch.
+    /// </param>
+    /// <param name="CallBacks">
+    /// An optional function that provides a <see cref="TPromiseBundleList"/> record for hooking into lifecycle events.
+    /// </param>
+    /// <returns>
+    /// A <see cref="TPromise&lt;TBundleList&gt;"/> that resolves with a <see cref="TBundleList"/> containing all responses
+    /// once every parallel task completes, or rejects on the first error.
+    /// </returns>
+    /// <remarks>
+    /// This method wraps the callback-based <see cref="CreateParallel"/> in a promise interface, enabling async/await usage
+    /// for parallel prompt execution. If <paramref name="CallBacks"/> is omitted, only the promise resolution is available.
+    /// </remarks>
+    function AsyncAwaitParallel(const ParamProc: TProc<TBundleParams>;
+      const CallBacks: TFunc<TPromiseBundleList> = nil): TPromise<TBundleList>;
+
+    /// <summary>
+    /// Creates a completion for the chat message using the provided parameters.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure used to configure the parameters for the chat request, such as selecting the model,
+    /// providing messages, setting token limits, etc.
+    /// </param>
+    /// <returns>
+    /// Returns a <c>TChat</c> object that contains the chat response, including the choices generated by the model.
+    /// </returns>
+    /// <remarks>
+    /// The <c>Create</c> method sends a chat completion request and waits for the full response.
+    /// The returned <c>TChat</c> object contains the model's generated response, including multiple
+    /// choices if available.
+    /// <code>
+    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
+    /// var Chat := DeepSeek.Chat.Create(
+    ///     procedure (Params: TChatParams)
+    ///     begin
+    ///       // Define chat parameters
+    ///     end);
+    ///   try
+    ///     // Handle the Chat
+    ///   finally
+    ///     Chat.Free;
+    ///   end;
+    /// </code>
+    /// </remarks>
+    function Create(const ParamProc: TProc<TChatParams>): TChat;
+
+    /// <summary>
+    /// Creates a chat message completion with a streamed response.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure used to configure the parameters for the chat request, such as selecting the model, providing messages, and adjusting other settings like token limits or temperature.
+    /// </param>
+    /// <param name="Event">
+    /// A callback of type <c>TChatEvent</c> that is triggered with each chunk of data received during the streaming process. It includes the current state of the <c>TChat</c> object, a flag indicating if the stream is done, and a boolean to handle cancellation.
+    /// </param>
+    /// <returns>
+    /// Returns <c>True</c> if the streaming process started successfully, <c>False</c> otherwise.
+    /// </returns>
+    /// <remarks>
+    /// This method initiates a chat request in streaming mode, where the response is delivered incrementally in real-time.
+    /// The <c>Event</c> callback will be invoked multiple times as tokens are received.
+    /// When the response is complete, the <c>IsDone</c> flag will be set to <c>True</c>, and the <c>Chat</c> object will be <c>nil</c>.
+    /// The streaming process can be interrupted by setting the <c>Cancel</c> flag to <c>True</c> within the event.
+    /// <code>
+    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
+    ///   DeepSeek.Chat.CreateStream(
+    ///     procedure (Params: TChatParams)
+    ///     begin
+    ///       // Define chat parameters
+    ///     end,
+    ///
+    ///     procedure(var Chat: TChat; IsDone: Boolean; var Cancel: Boolean)
+    ///     begin
+    ///       // Handle displaying
+    ///     end);
+    /// </code>
+    /// </remarks>
+    function CreateStream(const ParamProc: TProc<TChatParams>; const Event: TChatEvent): Boolean;
+
+    /// <summary>
+    /// Initiates parallel processing of chat prompts by creating multiple chat completions
+    /// asynchronously, with results stored in a bundle and provided back to the callback function.
+    /// This method allows for parallel processing of multiple prompts in an efficient manner,
+    /// handling errors and successes for each chat completion.
+    /// </summary>
+    /// <param name="ParamProc">
+    /// A procedure delegate that configures the parameters for the bundle. It is responsible
+    /// for providing the necessary settings (such as model and reasoning effort) for the chat completions.
+    /// </param>
+    /// <param name="CallBacks">
+    /// A function that returns an instance of TAsynBuffer, which manages the lifecycle of the
+    /// asynchronous operation. The callbacks include handlers for start, error, and success events.
+    /// </param>
+    /// <remarks>
+    /// The method allows for efficient parallel processing of multiple prompts by delegating
+    /// individual tasks to separate threads. It each task's result is properly bundled and communicated back to the caller.
+    /// If an error occurs, the error handling callback will be triggered, and the rest of the tasks
+    /// will continue processing. The success callback is triggered once all tasks are completed.
+    /// </remarks>
+    procedure CreateParallel(const ParamProc: TProc<TBundleParams>;
+      const CallBacks: TFunc<TAsynBundleList>);
+
+    /// <summary>
     /// Create an asynchronous completion for chat message
     /// </summary>
     /// <param name="ParamProc">
@@ -957,7 +1210,9 @@ type
     ///   end);
     /// </code>
     /// </remarks>
-    procedure AsynCreate(ParamProc: TProc<TChatParams>; CallBacks: TFunc<TAsynChat>);
+    procedure AsynCreate(const ParamProc: TProc<TChatParams>;
+      const CallBacks: TFunc<TAsynChat>);
+
     /// <summary>
     /// Creates an asynchronous streaming chat completion request.
     /// </summary>
@@ -1010,90 +1265,8 @@ type
     ///   end);
     /// </code>
     /// </remarks>
-    procedure AsynCreateStream(ParamProc: TProc<TChatParams>;
-      CallBacks: TFunc<TAsynChatStream>);
-    /// <summary>
-    /// Creates a completion for the chat message using the provided parameters.
-    /// </summary>
-    /// <param name="ParamProc">
-    /// A procedure used to configure the parameters for the chat request, such as selecting the model,
-    /// providing messages, setting token limits, etc.
-    /// </param>
-    /// <returns>
-    /// Returns a <c>TChat</c> object that contains the chat response, including the choices generated by the model.
-    /// </returns>
-    /// <remarks>
-    /// The <c>Create</c> method sends a chat completion request and waits for the full response.
-    /// The returned <c>TChat</c> object contains the model's generated response, including multiple
-    /// choices if available.
-    /// <code>
-    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
-    /// var Chat := DeepSeek.Chat.Create(
-    ///     procedure (Params: TChatParams)
-    ///     begin
-    ///       // Define chat parameters
-    ///     end);
-    ///   try
-    ///     // Handle the Chat
-    ///   finally
-    ///     Chat.Free;
-    ///   end;
-    /// </code>
-    /// </remarks>
-    function Create(ParamProc: TProc<TChatParams>): TChat;
-    /// <summary>
-    /// Creates a chat message completion with a streamed response.
-    /// </summary>
-    /// <param name="ParamProc">
-    /// A procedure used to configure the parameters for the chat request, such as selecting the model, providing messages, and adjusting other settings like token limits or temperature.
-    /// </param>
-    /// <param name="Event">
-    /// A callback of type <c>TChatEvent</c> that is triggered with each chunk of data received during the streaming process. It includes the current state of the <c>TChat</c> object, a flag indicating if the stream is done, and a boolean to handle cancellation.
-    /// </param>
-    /// <returns>
-    /// Returns <c>True</c> if the streaming process started successfully, <c>False</c> otherwise.
-    /// </returns>
-    /// <remarks>
-    /// This method initiates a chat request in streaming mode, where the response is delivered incrementally in real-time.
-    /// The <c>Event</c> callback will be invoked multiple times as tokens are received.
-    /// When the response is complete, the <c>IsDone</c> flag will be set to <c>True</c>, and the <c>Chat</c> object will be <c>nil</c>.
-    /// The streaming process can be interrupted by setting the <c>Cancel</c> flag to <c>True</c> within the event.
-    /// <code>
-    /// //var DeepSeek := TDeepseekFactory.CreateInstance(BarearKey);
-    ///   DeepSeek.Chat.CreateStream(
-    ///     procedure (Params: TChatParams)
-    ///     begin
-    ///       // Define chat parameters
-    ///     end,
-    ///
-    ///     procedure(var Chat: TChat; IsDone: Boolean; var Cancel: Boolean)
-    ///     begin
-    ///       // Handle displaying
-    ///     end);
-    /// </code>
-    /// </remarks>
-    function CreateStream(ParamProc: TProc<TChatParams>; Event: TChatEvent): Boolean;
-    /// <summary>
-    /// Initiates parallel processing of chat prompts by creating multiple chat completions
-    /// asynchronously, with results stored in a bundle and provided back to the callback function.
-    /// This method allows for parallel processing of multiple prompts in an efficient manner,
-    /// handling errors and successes for each chat completion.
-    /// </summary>
-    /// <param name="ParamProc">
-    /// A procedure delegate that configures the parameters for the bundle. It is responsible
-    /// for providing the necessary settings (such as model and reasoning effort) for the chat completions.
-    /// </param>
-    /// <param name="CallBacks">
-    /// A function that returns an instance of TAsynBuffer, which manages the lifecycle of the
-    /// asynchronous operation. The callbacks include handlers for start, error, and success events.
-    /// </param>
-    /// <remarks>
-    /// The method allows for efficient parallel processing of multiple prompts by delegating
-    /// individual tasks to separate threads. It each task's result is properly bundled and communicated back to the caller.
-    /// If an error occurs, the error handling callback will be triggered, and the rest of the tasks
-    /// will continue processing. The success callback is triggered once all tasks are completed.
-    /// </remarks>
-    procedure CreateParallel(ParamProc: TProc<TBundleParams>; CallBacks: TFunc<TAsynBundleList>);
+    procedure AsynCreateStream(const ParamProc: TProc<TChatParams>;
+      const CallBacks: TFunc<TAsynChatStream>);
   end;
 
 implementation
@@ -1277,8 +1450,94 @@ end;
 
 { TChatRoute }
 
-procedure TChatRoute.AsynCreate(ParamProc: TProc<TChatParams>;
-  CallBacks: TFunc<TAsynChat>);
+function TChatRoute.AsyncAwaitCreate(const ParamProc: TProc<TChatParams>;
+  const CallBacks: TFunc<TPromiseChat>): TPromise<TChat>;
+begin
+  Result := TAsyncAwaitHelper.WrapAsyncAwait<TChat>(
+    procedure(const CallBackParams: TFunc<TAsynChat>)
+    begin
+      AsynCreate(ParamProc, CallBackParams);
+    end,
+    CallBacks);
+end;
+
+function TChatRoute.AsyncAwaitCreateStream(const ParamProc: TProc<TChatParams>;
+  const CallBacks: TFunc<TPromiseChatStream>): TPromise<TPromiseBuffer>;
+var
+  Buffer: TPromiseBuffer;
+begin
+  Result := TPromise<TPromiseBuffer>.Create(
+    procedure(Resolve: TProc<TPromiseBuffer>; Reject: TProc<Exception>)
+    begin
+      AsynCreateStream(ParamProc,
+        function : TAsynChatStream
+        begin
+          Result.Sender := CallBacks.Sender;
+
+          Result.OnStart := CallBacks.OnStart;
+
+          Result.OnProgress :=
+            procedure (Sender: TObject; Event: TChat)
+            begin
+              if Assigned(CallBacks.OnProgress) then
+                CallBacks.OnProgress(Sender, Event);
+              for var Item in Event.Choices do
+                begin
+                  Buffer.Content := Buffer.Content + Item.Delta.Content;
+                  Buffer.Reasoning := Buffer.Reasoning + Item.Delta.FReasoningContent;
+                end;
+            end;
+
+          Result.OnSuccess :=
+            procedure (Sender: TObject)
+            begin
+              if Assigned(CallBacks.OnSuccess) then
+                CallBacks.OnSuccess(Sender);
+              Resolve(Buffer);
+            end;
+
+          Result.OnError :=
+            procedure (Sender: TObject; Error: string)
+            begin
+              if Assigned(CallBacks.OnError) then
+                Error := CallBacks.OnError(Sender, Error);
+              Reject(Exception.Create(Error));
+            end;
+
+          Result.OnDoCancel :=
+            function : Boolean
+            begin
+              if Assigned(CallBacks.OnDoCancel) then
+                Result := CallBacks.OnDoCancel()
+              else
+                Result := False;
+            end;
+
+          Result.OnCancellation :=
+            procedure (Sender: TObject)
+            begin
+              var Error := 'aborted';
+              if Assigned(CallBacks.OnCancellation) then
+                Error := CallBacks.OnCancellation(Sender);
+              Reject(Exception.Create(Error));
+            end;
+        end);
+    end);
+end;
+
+function TChatRoute.AsyncAwaitParallel(const ParamProc: TProc<TBundleParams>;
+  const CallBacks: TFunc<TPromiseBundleList>): TPromise<TBundleList>;
+begin
+  Result := TAsyncAwaitHelper.WrapAsyncAwait<TBundleList>(
+    procedure(const CallBackParams: TFunc<TAsynBundleList>)
+    begin
+      CreateParallel(ParamProc, CallBackParams);
+    end,
+    CallBacks);
+end;
+
+procedure TChatRoute.AsynCreate(const ParamProc: TProc<TChatParams>;
+  const CallBacks: TFunc<TAsynChat>);
 begin
   with TAsynCallBackExec<TAsynChat, TChat>.Create(CallBacks) do
   try
@@ -1296,8 +1555,8 @@ begin
   end;
 end;
 
-procedure TChatRoute.AsynCreateStream(ParamProc: TProc<TChatParams>;
-  CallBacks: TFunc<TAsynChatStream>);
+procedure TChatRoute.AsynCreateStream(const ParamProc: TProc<TChatParams>;
+  const CallBacks: TFunc<TAsynChatStream>);
 begin
 var CallBackParams := TUseParamsFactory<TAsynChatStream>.CreateInstance(CallBacks);
 
@@ -1408,13 +1667,13 @@ var CallBackParams := TUseParamsFactory<TAsynChatStream>.CreateInstance(CallBack
   Task.Start;
 end;
 
-function TChatRoute.Create(ParamProc: TProc<TChatParams>): TChat;
+function TChatRoute.Create(const ParamProc: TProc<TChatParams>): TChat;
 begin
   Result := API.Post<TChat, TChatParams>('chat/completions', ParamProc);
 end;
 
-procedure TChatRoute.CreateParallel(ParamProc: TProc<TBundleParams>;
-  CallBacks: TFunc<TAsynBundleList>);
+procedure TChatRoute.CreateParallel(const ParamProc: TProc<TBundleParams>;
+  const CallBacks: TFunc<TAsynBundleList>);
 var
   Tasks: TArray<ITask>;
   BundleParams: TBundleParams;
@@ -1509,8 +1768,8 @@ begin
   end;
 end;
 
-function TChatRoute.CreateStream(ParamProc: TProc<TChatParams>;
-  Event: TChatEvent): Boolean;
+function TChatRoute.CreateStream(const ParamProc: TProc<TChatParams>;
+  const Event: TChatEvent): Boolean;
 var
   Response: TStringStream;
 begin

@@ -4,7 +4,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, System.Generics.Collections, System.SyncObjs, System.Threading,
-  Deepseek.Types, Deepseek.Async.Support, Deepseek.API.Params;
+  Deepseek.Types, Deepseek.Async.Support, Deepseek.API.Params, Deepseek.Async.Promise;
 
 type
   /// <summary>
@@ -132,6 +132,16 @@ type
   /// enabling structured handling of callback events.
   /// </remarks>
   TAsynBundleList = TAsynCallBack<TBundleList>;
+
+  /// <summary>
+  /// Represents a promise-based callback for handling a bundle of chat responses.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseBundleList</c> alias extends <see cref="TPromiseCallBack&lt;TBundleList&gt;"/>
+  /// to provide a promise-style API for parallel chat prompt execution, resolving with a
+  /// <see cref="TBundleList"/> when all responses are complete or rejecting on error.
+  /// </remarks>
+  TPromiseBundleList = TPromiseCallBack<TBundleList>;
 
   /// <summary>
   /// Provides helper methods for managing asynchronous tasks.

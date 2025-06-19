@@ -452,6 +452,7 @@ begin
             FromUser(Prompt)
           ]);
           Params.Stream;
+          JSONRequest := Params.ToFormat();
         end,
         function : TAsynChatStream
         begin

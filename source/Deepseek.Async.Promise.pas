@@ -1,7 +1,17 @@
 unit Deepseek.Async.Promise;
 
-(*******************************************************************************
+{-------------------------------------------------------------------------------
 
+      Github repository :  https://github.com/MaxiDonkey/DelphiDeepseek
+      Visit the Github repository for the documentation and use examples
+
+ ------------------------------------------------------------------------------}
+
+interface
+
+{$REGION  'Dev notes : Depseek.Async.Promise'}
+
+(*
       Unit providing a generic implementation of Promises for handling
       asynchronous operations in Delphi.
 
@@ -33,16 +43,19 @@ unit Deepseek.Async.Promise;
     var Promise := TPromise<string>.Create(
       procedure(Resolve: TProc<string>; Reject: TProc<Exception>)
       begin
-        TThread.CreateAnonymousThread(
-          procedure
-          begin
-            Sleep(2000); // Simulating asynchronous work
-            if Random(2) = 0 then
-              Resolve('Operation Successful')
-            else
-              Reject(Exception.Create('Operation Failed'));
-          end
-        ).Start;
+        TTask.Run(
+        procedure()
+        begin
+          TThread.Queue(nil,
+            procedure
+            begin
+              Sleep(2000); // Simulating asynchronous work
+              if Random(2) = 0 then
+                Resolve('Operation Successful')
+              else
+                Reject(Exception.Create('Operation Failed'));
+            end)
+        end)
       end);
 
     Promise
@@ -62,16 +75,12 @@ unit Deepseek.Async.Promise;
       The unit is designed to work seamlessly with other asynchronous
       programming modules, making it a powerful addition to any Delphi
       application requiring structured async execution.
+*)
 
-      Github repository :  https://github.com/MaxiDonkey/DelphiDeepseek
-      Visit the Github repository for the documentation and use examples
-
-*******************************************************************************)
-
-interface
+{$ENDREGION}
 
 uses
-  System.SysUtils, System.Generics.Collections, System.Classes;
+  System.SysUtils, System.Generics.Collections, System.Classes, System.Threading;
 
 type
   /// <summary>
@@ -82,10 +91,12 @@ type
     /// The promise is pending and has not yet been resolved or rejected.
     /// </summary>
     psPending,
+
     /// <summary>
     /// The promise has been fulfilled with a value.
     /// </summary>
     psFulfilled,
+
     /// <summary>
     /// The promise has been rejected due to an error.
     /// </summary>
@@ -236,6 +247,46 @@ type
     /// <param name="AOnReject">A callback function that handles the error.</param>
     /// <returns>A new promise to allow method chaining.</returns>
     function &Catch(AOnReject: TProc<Exception>): TPromise<T>;
+
+    /// <summary>
+    /// Creates a promise that is immediately resolved with the specified value.
+    /// </summary>
+    /// <remarks>
+    /// Use this method when you already have the result and want to wrap it in a promise.
+    /// You can optionally provide a <paramref name="Proc"/> callback, which will be executed
+    /// just before the promise is resolved, allowing you to perform any side effects.
+    /// </remarks>
+    /// <param name="AValue">
+    /// The value with which the new promise will be fulfilled.
+    /// </param>
+    /// <param name="Proc">
+    /// An optional procedure to run before resolving the promise. If not needed, pass <c>nil</c>.
+    /// </param>
+    /// <returns>
+    /// A new <see cref="TPromise{T}"/> instance that is already in the fulfilled state with <paramref name="AValue"/>.
+    /// </returns>
+    class function Resolved(const AValue: T; Proc: TProc = nil): TPromise<T>;
+
+    /// <summary>
+    /// Creates a promise that is immediately rejected with the specified error.
+    /// </summary>
+    /// <remarks>
+    /// Use this method when you need to represent an error state in a promise without performing
+    /// any asynchronous work. You can optionally provide a <paramref name="Proc"/> callback,
+    /// which will be executed just before the promise is rejected, allowing for any necessary
+    /// side effects or cleanup.
+    /// </remarks>
+    /// <param name="AError">
+    /// The exception with which the new promise will be rejected.
+    /// </param>
+    /// <param name="Proc">
+    /// An optional procedure to run before rejecting the promise. If not needed, pass <c>nil</c>.
+    /// </param>
+    /// <returns>
+    /// A new <see cref="TPromise{T}"/> instance that is already in the rejected state with <paramref name="AError"/>.
+    /// </returns>
+    class function Rejected(AError: Exception; Proc: TProc = nil): TPromise<T>;
+
   end;
 
   /// <summary>
@@ -281,6 +332,15 @@ type
     /// The promise instance to unregister.
     /// </param>
     class procedure Remove(APromise: TObject);
+
+    /// <summary>
+    /// Removes later a promise instance from the registry, allowing it
+    /// to be freed if it is no longer referenced elsewhere.
+    /// </summary>
+    /// <param name="APromise">
+    /// The promise instance to unregister.
+    /// </param>
+    class procedure RemoveLater(APromise: TObject);
 
     /// <summary>
     /// Scans the registry and deletes any promises that are no longer
@@ -367,16 +427,37 @@ begin
   Result := FState;
 end;
 
+class function TPromise<T>.Rejected(AError: Exception; Proc: TProc): TPromise<T>;
+begin
+  Result := TPromise<T>.Create(
+    procedure(Resolve: TProc<T>; Reject: TProc<Exception>)
+    begin
+      TTask.Run(
+        procedure()
+        begin
+          TThread.Queue(nil,
+            procedure
+            begin
+              if Assigned(Proc) then
+                Proc();
+              Reject(CloneException(AError));
+            end)
+        end)
+    end);
+end;
+
 procedure TPromise<T>.Resolve(const AValue: T);
 var
   Handlers: TArray<TProc<T>>;
   Handler: TProc<T>;
+  LValue: T;
 begin
   if FState <> psPending then
     Exit;
 
   FState := psFulfilled;
   FValue := AValue;
+  LValue := AValue;
 
   {--- Copy the locked callback list }
   TMonitor.Enter(FHandlerLock);
@@ -391,7 +472,7 @@ begin
     TThread.Queue(nil,
       procedure
       begin
-        Handler(FValue);
+        Handler(LValue);
       end);
 
   {--- Empty locked lists }
@@ -404,13 +485,33 @@ begin
   end;
 
   {--- Safe destruction because we are out of the register }
-  TPromiseRegistry.Remove(Self);
+  TPromiseRegistry.RemoveLater(Self);
+end;
+
+class function TPromise<T>.Resolved(const AValue: T; Proc: TProc): TPromise<T>;
+begin
+  Result := TPromise<T>.Create(
+    procedure(Resolve: TProc<T>; Reject: TProc<Exception>)
+    begin
+      TTask.Run(
+        procedure()
+        begin
+          TThread.Queue(nil,
+            procedure
+            begin
+              if Assigned(Proc) then
+                Proc();
+              Resolve(AValue);
+            end)
+        end)
+    end);
 end;
 
 procedure TPromise<T>.Reject(AError: Exception);
 var
   Handlers: TArray<TProc<Exception>>;
   Handler: TProc<Exception>;
+  LError: Exception;
 begin
   if FState <> psPending then
     begin
@@ -420,6 +521,7 @@ begin
 
   FState := psRejected;
   FError := AError;
+  LError := AError;
 
   {--- Copy the locked callback list }
   TMonitor.Enter(FHandlerLock);
@@ -434,7 +536,7 @@ begin
     TThread.Queue(nil,
       procedure
       begin
-        Handler(FError);
+        Handler(LError);
       end);
 
   {--- Empty locked lists }
@@ -447,7 +549,7 @@ begin
   end;
 
   {--- Safe destruction because we are out of the register }
-  TPromiseRegistry.Remove(Self);
+  TPromiseRegistry.RemoveLater(Self);
 end;
 
 function TPromise<T>.&Then(AOnFulfill: TProc<T>): TPromise<T>;
@@ -846,11 +948,18 @@ begin
   end;
 end;
 
+class procedure TPromiseRegistry.RemoveLater(APromise: TObject);
+begin
+  TThread.Queue(nil,
+    procedure
+    begin
+      Remove(APromise);
+    end);
+end;
+
 initialization
 finalization
   {--- Delete pending promises }
   TPromiseRegistry.Clear;
 end.
-
-
 

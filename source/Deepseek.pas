@@ -14,6 +14,9 @@ uses
   Deepseek.Models, Deepseek.Chat, Deepseek.FIM, Deepseek.User, Deepseek.Functions.Core,
   Deepseek.HttpClient.Intf, Deepseek.HttpClient, Deepseek.Monitoring, Deepseek.API.Parallel;
 
+const
+  VERSION = 'Deepseekv1.0.3';
+
 type
   /// <summary>
   /// The <c>IDeepseek</c> interface provides access to the various features and routes of the Deepseek AI API.
@@ -33,6 +36,7 @@ type
     function GetBaseUrl: string;
     procedure SetBaseUrl(const Value: string);
     function GetClientHttp: IHttpClientAPI;
+    function GetVersion: string;
 
     function GetChatRoute: TChatRoute;
     function GetFIMRoute: TFIMRoute;
@@ -40,10 +44,22 @@ type
     function GetUserRoute: TUserRoute;
 
     /// <summary>
+    /// Gets the current version of the Deepseek library.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Version</c> property provides the semantic version number of the library as a string.
+    /// This can be used for compatibility checks or displaying version information in your application.
+    /// </remarks>
+    /// <returns>
+    /// A string representing the library version.
+    /// </returns>
+    property Version: string read GetVersion;
+    /// <summary>
     /// This class offers functionality for generating contextually appropriate responses within
     /// conversational frameworks.
     /// </summary>
     property Chat: TChatRoute read GetChatRoute;
+
     /// <summary>
     /// This class implements the FIM (Fill In the Middle) completion functionality, allowing users
     /// to generate content or code by providing a prefix and an optional suffix. FIM completion is
@@ -60,16 +76,19 @@ type
     /// </para>
     /// </remarks>
     property FIM: TFIMRoute read GetFIMRoute;
+
     /// <summary>
     /// Provides methods for interacting with the Deepseek API to retrieve models.
     /// It offers both synchronous and asynchronous operations
     /// for listing and retrieving individual models.
     /// </summary>
     property Models: TModelsRoute read GetModelsRoute;
+
     /// <summary>
     /// This provides methods for user management including current balance.
     /// </summary>
     property User: TUserRoute read GetUserRoute;
+
     /// <summary>
     /// the main API object used for making requests.
     /// </summary>
@@ -77,15 +96,18 @@ type
     /// An instance of TDeepseekAPI for making API calls.
     /// </returns>
     property API: TDeepseekAPI read GetAPI;
+
     /// <summary>
     /// Sets or retrieves the API token for authentication.
     /// </summary>
     property Key: string read GetKey write SetKey;
+
     /// <summary>
     /// Sets or retrieves the base URL for API requests.
     /// Default is https://api.Deepseek.com/v1
     /// </summary>
     property BaseURL: string read GetBaseUrl write SetBaseUrl;
+
     /// <summary>
     /// The HTTP client interface used for making API calls.
     /// </summary>
@@ -122,6 +144,7 @@ type
     /// WARNING : Please take care to adjust the SCOPE of the <c>DeepseekCloud</c> interface in you application.
     /// </remarks>
     class function CreateInstance(const AToken: string): IDeepseek;
+
     /// <summary>
     /// Creates an instance of the <c>IDeepseek</c> interface with the specified API token.
     /// <para>
@@ -170,6 +193,7 @@ type
     function GetBaseUrl: string;
     procedure SetBaseUrl(const Value: string);
     function GetClientHttp: IHttpClientAPI;
+    function GetVersion: string;
 
     function GetChatRoute: TChatRoute;
     function GetFIMRoute: TFIMRoute;
@@ -182,6 +206,7 @@ type
     /// conversational frameworks.
     /// </summary>
     property Chat: TChatRoute read GetChatRoute;
+
     /// <summary>
     /// Provides methods for interacting with the Deepseek API to retrieve models.
     /// It offers both synchronous and asynchronous operations
@@ -203,16 +228,19 @@ type
     /// </para>
     /// </remarks>
     property FIM: TFIMRoute read GetFIMRoute;
+
     /// <summary>
     /// Provides methods for interacting with the Deepseek API to retrieve models.
     /// It offers both synchronous and asynchronous operations
     /// for listing and retrieving individual models.
     /// </summary>
     property Models: TModelsRoute read GetModelsRoute;
+
     /// <summary>
     /// This provides methods for user management including current balance.
     /// </summary>
     property User: TUserRoute read GetUserRoute;
+
     /// <summary>
     /// the main API object used for making requests.
     /// </summary>
@@ -226,6 +254,7 @@ type
     /// An instance of TDeepseekAPI for making API calls.
     /// </returns>
     property API: TDeepseekAPI read GetAPI;
+
     /// <summary>
     /// Sets or retrieves the API token for authentication.
     /// </summary>
@@ -236,6 +265,7 @@ type
     /// The current API token.
     /// </returns>
     property Token: string read GetKey write SetKey;
+
     /// <summary>
     /// Sets or retrieves the base URL for API requests.
     /// Default is https://api.stability.ai
@@ -261,6 +291,7 @@ type
     /// The token can be set later via the <see cref="Token"/> property.
     /// </remarks>
     constructor Create; overload;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="TDeepseek"/> class with the provided API token and optional header configuration.
     /// </summary>
@@ -275,6 +306,7 @@ type
     /// This constructor allows the user to specify an API token at the time of initialization.
     /// </remarks>
     constructor Create(const AToken: string); overload;
+
     /// <summary>
     /// Releases all resources used by the current instance of the <see cref="TDeepseek"/> class.
     /// </summary>
@@ -320,6 +352,17 @@ type
   /// This example shows how to instantiate and configure a <c>TChatParams</c> object for interacting with an AI model.
   /// </remarks>
   TChatParams = Deepseek.Chat.TChatParams;
+
+  /// <summary>
+  /// Represents the buffer for accumulating streamed chat response data.
+  /// </summary>
+  /// <remarks>
+  /// <para>The <c>TPromiseBuffer</c> record stores information collected during a streaming chat operation.</para>
+  /// <para><see cref="Content"/> holds the incremental text output from the assistant as it arrives.</para>
+  /// <para><see cref="Reasoning"/> holds any reasoning content delivered before the final output.</para>
+  /// <para>This buffer is returned to the caller once the stream completes.</para>
+  /// </remarks>
+  TPromiseBuffer = Deepseek.Chat.TPromiseBuffer;
 
   /// <summary>
   /// Represents the specifics of a called function, including its name and calculated arguments.
@@ -485,6 +528,16 @@ type
   TAsynChat = Deepseek.Chat.TAsynChat;
 
   /// <summary>
+  /// Represents a promise-based callback for an asynchronous chat operation.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseChat</c> alias extends <see cref="TPromiseCallBack&lt;TChat&gt;"/>
+  /// to provide a promise-style API for chat completions, yielding a <see cref="TChat"/>
+  /// instance when the operation succeeds or raising an exception on failure.
+  /// </remarks>
+  TPromiseChat = Deepseek.Chat.TPromiseChat;
+
+  /// <summary>
   /// Manages asynchronous streaming chat callBacks for a chat request using <c>TChat</c> as the response type.
   /// </summary>
   /// <remarks>
@@ -493,6 +546,16 @@ type
   /// This structure is ideal for handling scenarios where the chat response is streamed incrementally, providing real-time updates to the user interface.
   /// </remarks>
   TAsynChatStream = Deepseek.Chat.TAsynChatStream;
+
+  /// <summary>
+  /// Represents a promise-based callback for streaming chat operations.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseChatStream</c> alias extends <see cref="TPromiseStreamCallBack&lt;TChat&gt;"/>
+  /// to provide a promise-style API for streaming chat completions, delivering incremental <see cref="TChat"/>
+  /// updates until the stream finishes or an error is encountered.
+  /// </remarks>
+  TPromiseChatStream = Deepseek.Chat.TPromiseChatStream;
 
   /// <summary>
   /// Represents a callback procedure used during the reception of responses from a chat request in streaming mode.
@@ -770,6 +833,16 @@ type
   TAsynBundleList = Deepseek.API.Parallel.TAsynBundleList;
 
   /// <summary>
+  /// Represents a promise-based callback for handling a bundle of chat responses.
+  /// </summary>
+  /// <remarks>
+  /// The <c>TPromiseBundleList</c> alias extends <see cref="TPromiseCallBack&lt;TBundleList&gt;"/>
+  /// to provide a promise-style API for parallel chat prompt execution, resolving with a
+  /// <see cref="TBundleList"/> when all responses are complete or rejecting on error.
+  /// </remarks>
+  TPromiseBundleList = Deepseek.API.Parallel.TPromiseBundleList;
+
+  /// <summary>
   /// Provides helper methods for managing asynchronous tasks.
   /// </summary>
   /// <remarks>
@@ -952,6 +1025,11 @@ begin
   if not Assigned(FUserRoute) then
     FUserRoute := TUserRoute.CreateRoute(API);
   Result := FUserRoute;
+end;
+
+function TDeepseek.GetVersion: string;
+begin
+  Result := VERSION;
 end;
 
 procedure TDeepseek.SetBaseUrl(const Value: string);
