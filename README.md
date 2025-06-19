@@ -1,25 +1,23 @@
 # Delphi Deepseek
 
 ___
-![GitHub](https://img.shields.io/badge/IDE%20Version-Delphi%2010.3/11/12-yellow)
-![GitHub](https://img.shields.io/badge/platform-all%20platforms-green)
-![GitHub](https://img.shields.io/badge/Updated%20on%20april%2026,%202025-blue)
+![Delphi async/await supported](https://img.shields.io/badge/Delphi%20async%2Fawait-supported-blue)
+![GitHub](https://img.shields.io/badge/IDE%20Version-Delphi%2010.3/11/12-ffffba)
+![GitHub](https://img.shields.io/badge/platform-all%20platforms-baffc9)
+![GitHub](https://img.shields.io/badge/Updated%20on%20june%2019,%202025-blue)
 
 <br/>
 
 NEW: 
 - [Changelog](https://github.com/MaxiDonkey/DelphiDeepseek/blob/main/Changelog.md)
-- [Deepseek-reasoner](#deepseek-reasoner)
-- [Parallel method for generating text](#parallel-method-for-generating-text)
 - [Multiple queries with chaining](#multiple-queries-with-chaining)
 - [Tips and tricks](#tips-and-tricks)
 ___
 
 - [Introduction](#introduction)
-- [Remarks](#remarks)
 - [Wrapper Tools Info](#wrapper-tools-info)
     - [Tools for simplifying this tutorial](#tools-for-simplifying-this-tutorial)
-    - [Asynchronous callback mode management](#asynchronous-callback-mode-management)
+    - [Use the FMX or VCL app examples](#use-the-fmx-or-vcl-app-examples)
     - [Simplified Unit Declaration](#simplified-unit-declaration) 
 - [Usage](#usage)
     - [Initialization](#initialization)
@@ -50,15 +48,24 @@ ___
 
 # Introduction
 
-Founded in 2023, Deepseek provides two language models with automatic caching. Developed in China, this technology is influenced by a specific cultural and regulatory framework, shaping its priorities and development choices. While its scope of application is still evolving, Deepseek offers an option for Delphi developers looking to experiment with AI tools.
+> **Built with Delphi 12 Community Edition** (v12.1 Patch 1)  
+>The wrapper itself is MIT-licensed.  
+>You can compile and test it free of charge with Delphi CE; any recent commercial Delphi edition works as well.
 
-This unofficial wrapper aims to simplify the integration of Deepseek APIs into Delphi projects. It provides a practical way for developers to explore and test these models, whether for natural language processing, conversational assistants, or other targeted use cases. The library enables quick experimentation while leveraging Delphi’s familiar environment.
 
-This wrapper is primarily intended for exploratory purposes. It provides users with a tool to assess whether Deepseek meets their specific needs and to integrate it into their projects if deemed suitable.
+**Deepseek for Delphi** is a powerful Delphi library that brings the latest Deepseek APIs to your desktop, mobile, and server apps.
+
+**Core capabilities**  
+- Unified access to text endpoints  
+- Supports state-of-the-art models, including ***deepseek-chat*** and the reasoning-centric *deepseek-reasoner* series  
+
+**Developer tooling**  
+- Ready-made `Sync`, `Async`, and `Await` code snippets (TutorialHUB compatible)  
+- Mock-friendly design: the HTTP layer is injected via dependency injection, so you can swap in stubs or fakes for testing  
+
+Integrate Deepseek into Delphi—no boilerplate, just results.
 
 <br/>
-
-# Remarks
 
 > [!IMPORTANT]
 >
@@ -75,62 +82,20 @@ This section offers concise notifications and explanations about the tools desig
 
 ## Tools for simplifying this tutorial
 
-To streamline the code examples provided in this tutorial and facilitate quick implementation, two units have been included in the source code: `Deepseek.Tutorial.VCL` and `Deepseek.Tutorial.FMX`. Depending on the platform you choose to test the provided source code, you will need to instantiate either the `TVCLTutorialHub` or `TFMXTutorialHub` class in the application's OnCreate event, as demonstrated below:
+### Use the FMX or VCL app examples
 
->[!TIP]
->```Pascal
-> //uses Deepseek.Tutorial.VCL;
-> TutorialHub := TVCLTutorialHub.Create(Deepseek, Memo1, Memo2, Memo3, Memo4, Button2);
->```
+You can simply use code examples provided in this tutorial, two support units have been included in the source code: `Deepseek.Tutorial.VCL` and `Deepseek.Tutorial.FMX` Based on the platform selected for testing the provided examples, you will need to initialize either the `TVCLTutorialHub` or `TFMXTutorialHub` class within the application's OnCreate event, as illustrated below:
 
-or
+>[!IMPORTANT]
+>In this repository, you will find in the [`sample`](https://github.com/MaxiDonkey/DelphiDeepseek/tree/main/sample) folder two ***ZIP archives***, each containing a template to easily test all the code examples provided in this tutorial. 
+>Extract the `VCL` or `FMX` version depending on your target platform for testing. 
+>Next, add the path to the Deepseek library in your project’s options, then copy and paste the code examples for immediate execution. 
+>
+>These two archives have been designed to fully leverage the TutorialHub middleware and enable rapid upskilling with Deepseek.
 
->[!TIP]
->```Pascal
-> //uses Deepseek.Tutorial.FMX;
-> TutorialHub := TFMXTutorialHub.Create(Deepseek, Memo1, Memo2, Memo3, Memo4, Button2);
->```
+- [**`VCL`**](https://github.com/MaxiDonkey/DelphiDeepseek/tree/main/sample) support with TutorialHUB: ***TTestDeepseek_VCL.zip***
 
-Make sure to add a three `TMemo`, a `TButton` component to your form beforehand and Deepseek then client ([see bellow.](#initialization)) 
-
-The `TButton` will allow the interruption of any streamed reception.
-
-<br/>
-
-## Asynchronous callback mode management
-
-In the context of asynchronous methods, for a method that does not involve streaming, callbacks use the following generic record: `TAsynCallBack<T> = record` defined in the `Deepseek.Async.Support.pas` unit. This record exposes the following properties:
-
-```Pascal
-   TAsynCallBack<T> = record
-   ... 
-       Sender: TObject;
-       OnStart: TProc<TObject>;
-       OnSuccess: TProc<TObject, T>;
-       OnError: TProc<TObject, string>; 
-```
-<br/>
-
-For methods requiring streaming, callbacks use the generic record `TAsynStreamCallBack<T> = record`, also defined in the `Deepseek.Async.Support.pas` unit. This record exposes the following properties:
-
-```Pascal
-   TAsynCallBack<T> = record
-   ... 
-       Sender: TObject;
-       OnStart: TProc<TObject>;
-       OnProgress: TProc<TObject, T>;
-       OnSuccess: TProc<TObject, T>;
-       OnError: TProc<TObject, string>;
-       OnCancellation: TProc<TObject>;
-       OnDoCancel: TFunc<Boolean>;
-```
-
-The name of each property is self-explanatory; if needed, refer to the internal documentation for more details.
-
-<br>
-
->[!NOTE]
-> All methods managed by the wrapper are designed to support both synchronous and asynchronous execution modes. This dual-mode functionality ensures greater flexibility for users, allowing them to choose the approach that best suits their application's requirements and workflow.
+- [**`FMX`**](https://github.com/MaxiDonkey/DelphiDeepseek/tree/main/sample) support with TutorialHUB: ***TestDeepseek_FMX.zip***
 
 <br/>
 
@@ -254,6 +219,31 @@ The Messages API can be used for both single-turn requests and multi-turn, state
 //  finally
 //    Value.Free;
 //  end;
+
+  //Asynchronous promise example
+//  Start(TutorialHub);
+//  var Promise := Deepseek.Chat.AsyncAwaitCreate(
+//    procedure (Params: TChatParams)
+//    begin
+//      Params.Model('deepseek-chat');
+//      Params.Messages([
+//        FromUser('What is the capital of France, and then the capital of champagne?')
+//      ]);
+//      TutorialHub.JSONRequest := Params.ToFormat();
+//    end);
+//
+//  Promise
+//    .&Then<TChat>(
+//      function (Value: TChat): TChat
+//      begin
+//        Result := Value;
+//        Display(TutorialHub, Value);
+//      end)
+//    .&Catch(
+//      procedure (E: Exception)
+//      begin
+//        Display(TutorialHub, E.Message);
+//      end);
 ```
 
 <br/>
@@ -306,6 +296,40 @@ When generating a Message, you can enable `"stream": true` to progressively rece
 //      if Assigned(Chat) and not IsDone then
 //        DisplayStream(TutorialHub, Chat);
 //    end);
+
+  //Asynchronous promise example
+//  var Promise := Deepseek.Chat.AsyncAwaitCreateStream(
+//    procedure (Params: TChatParams)
+//    begin
+//      Params.Model('deepseek-chat');
+//      Params.Messages([
+//        FromUser('Are there accumulation points in a discrete topology?')
+//      ]);
+//      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
+//    end,
+//    function : TPromiseChatStream
+//    begin
+//      Result.Sender := TutorialHub;
+//      Result.OnProgress :=
+//        procedure (Sender: TObject; Chunk: TChat)
+//        begin
+//          DisplayStream(Sender, Chunk);
+//        end;
+//    end);
+//
+//  promise
+//    .&Then<TPromiseBuffer>(
+//      function (Value: TPromiseBuffer): TPromiseBuffer
+//      begin
+//        Result := Value;
+//        ShowMessage(Value.Content);
+//      end)
+//    .&Catch(
+//      procedure (E: Exception)
+//      begin
+//        Display(TutorialHub, E.Message);
+//      end);
 ```
 
 <br/>
@@ -369,6 +393,41 @@ Refer to the [official documentation](https://api-docs.deepseek.com/guides/multi
 //      if Assigned(Chat) and not IsDone then
 //        DisplayStream(TutorialHub, Chat);
 //    end);
+
+  //Asynchronous promise example
+//  var Promise := Deepseek.Chat.AsyncAwaitCreateStream(
+//      Params.Model('deepseek-chat');
+//      Params.Messages([
+//        FromSystem('You are a funny domestic assistant.'),
+//        FromUser('Hello'),
+//        FromAssistant('Great to meet you. What would you like to know?'),
+//        FromUser('I have two dogs in my house. How many paws are in my house?')
+//      ]);
+//      Params.MaxTokens(1024);
+//      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
+//    function : TPromiseChatStream
+//    begin
+//      Result.Sender := TutorialHub;
+//      Result.OnProgress :=
+//        procedure (Sender: TObject; Chunk: TChat)
+//        begin
+//          DisplayStream(Sender, Chunk);
+//        end;
+//    end);
+//
+//  promise
+//    .&Then<TPromiseBuffer>(
+//      function (Value: TPromiseBuffer): TPromiseBuffer
+//      begin
+//        Result := Value;
+//        ShowMessage(Value.Content);
+//      end)
+//    .&Catch(
+//      procedure (E: Exception)
+//      begin
+//        Display(TutorialHub, E.Message);
+//      end);
 ```
 
 <br/>
@@ -417,6 +476,40 @@ To ensure compatibility with existing software, using *temperature, top_p, prese
       Result.OnDoCancel := DoCancellation;
       Result.OnCancellation := Cancellation;
     end);
+
+  //Asynchronous promise example
+//  var Promise := Deepseek.Chat.AsyncAwaitCreateStream(
+//    procedure (Params: TChatParams)
+//    begin
+//      Params.Model('deepseek-reasoner');
+//      Params.Messages([
+//        FromUser('Does art belong to the artist or to his audience?')
+//      ]);
+//      Params.Stream;
+//      TutorialHub.JSONRequest := Params.ToFormat();
+//    end,
+//    function : TPromiseChatStream
+//    begin
+//      Result.Sender := TutorialHub;
+//      Result.OnProgress :=
+//        procedure (Sender: TObject; Chunk: TChat)
+//        begin
+//          DisplayStream(Sender, Chunk);
+//        end;
+//    end);
+//
+//  promise
+//    .&Then<TPromiseBuffer>(
+//      function (Value: TPromiseBuffer): TPromiseBuffer
+//      begin
+//        Result := Value;
+//        ShowMessage(Value.Content);
+//      end)
+//    .&Catch(
+//      procedure (E: Exception)
+//      begin
+//        Display(TutorialHub, E.Message);
+//      end);
 ```
 
 In the sample code provided with the DisplayStream method, you can see how to handle the reasoning portion separately from the final response generation:
@@ -491,6 +584,34 @@ This approach enables the simultaneous execution of multiple prompts, provided t
 
       Result.OnError := Display;
     end)
+
+  //Asynchronous promise example
+//  Start(TutorialHub);
+//  var Promise := DeepSeek.Chat.AsyncAwaitParallel(
+//    procedure (Params: TBundleParams)
+//    begin
+//      Params.Prompts([
+//        'How many television channels were there in France in 1980?',
+//        'How many TV channels were there in Germany in 1980?.'
+//      ]);
+//      Params.System('Write the response in capital letters.');
+//      Params.Model('deepseek-chat');
+//    end);
+//
+//  Promise
+//    .&Then<TBundleList>(
+//      function (Value: TBundleList): TBundleList
+//      begin
+//        for var Item in Value.Items do
+//        begin
+//          Display(TutorialHub, TChat(Item.Chat).Choices[0].Message.Content);
+//        end;
+//      end)
+//    .&Catch(
+//      procedure (E: Exception)
+//      begin
+//        Display(TutorialHub, E.Message);
+//      end);
 ```
 
 Result
