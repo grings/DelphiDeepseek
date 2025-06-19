@@ -3,6 +3,7 @@
 ___
 ![Delphi async/await supported](https://img.shields.io/badge/Delphi%20async%2Fawait-supported-blue)
 ![GitHub](https://img.shields.io/badge/IDE%20Version-Delphi%2010.3/11/12-ffffba)
+[![GetIt – Available](https://img.shields.io/badge/GetIt-Available-baffc9?logo=delphi&logoColor=white)](https://getitnow.embarcadero.com/genai-optimized-openai-integration-wrapper/)
 ![GitHub](https://img.shields.io/badge/platform-all%20platforms-baffc9)
 ![GitHub](https://img.shields.io/badge/Updated%20on%20june%2019,%202025-blue)
 
