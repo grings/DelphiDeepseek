@@ -10,6 +10,7 @@ ___
 <br/>
 
 NEW: 
+- Getit current version: 1.0.3
 - [Changelog](https://github.com/MaxiDonkey/DelphiDeepseek/blob/main/Changelog.md)
 - [Multiple queries with chaining](#multiple-queries-with-chaining)
 - [Tips and tricks](#tips-and-tricks)
